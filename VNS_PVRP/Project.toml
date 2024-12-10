@@ -1,0 +1,10 @@
+name = "VNS_PVRP"
+uuid = "6b134b48-ff30-47d6-878b-4724cc95e18e"
+authors = ["nicoehler "]
+version = "0.1.0"
+
+[deps]
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+
+[compat]
+Revise = "3.5.18"
