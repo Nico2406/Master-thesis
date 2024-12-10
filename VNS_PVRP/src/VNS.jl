@@ -48,6 +48,7 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
     println("Cost after initial local search: $current_cost, Δ: $(current_cost - best_cost)")
     println("Local search method: $local_search_method")
 
+    # ganz nach oben
     no_improvement_counter = 0
     max_iterations = 100
     max_no_improvement = 10
