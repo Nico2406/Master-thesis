@@ -5,6 +5,7 @@ using Main.Solution: VRPSolution, Route, recalculate_route!
 
 export local_search!, two_opt_first_improvement!, two_opt_first_improvement_1iteration!
 
+# Perform local search on the entire solution
 function local_search!(sol::VRPSolution, inst::PVRPInstance, method::String, max_iterations::Int)::Number
     Δ = 0
     for route in sol.routes
@@ -17,6 +18,7 @@ function local_search!(sol::VRPSolution, inst::PVRPInstance, method::String, max
     return Δ
 end
 
+# Perform local search on a single route
 function local_search!(route::Route, inst::PVRPInstance, method::String, max_iterations::Int)::Number
     Δ = 0
     if method == "2opt-first"
@@ -28,6 +30,7 @@ function local_search!(route::Route, inst::PVRPInstance, method::String, max_ite
     return Δ
 end
 
+# Apply the 2-opt first improvement heuristic to a route
 function two_opt_first_improvement!(route::Route, inst::PVRPInstance, max_iterations::Int=1000)::Number
     Δ, totalΔ, iterations = -1, 0, 0
     while Δ != 0 && iterations < max_iterations
@@ -38,6 +41,7 @@ function two_opt_first_improvement!(route::Route, inst::PVRPInstance, max_iterat
     return totalΔ
 end
 
+# Perform one iteration of the 2-opt first improvement heuristic
 function two_opt_first_improvement_1iteration!(route::Route, inst::PVRPInstance)::Number
     routelen = length(route.visited_nodes)
     for i = 2:(routelen - 2)
