@@ -2,7 +2,8 @@ module Solution
 
 using ..PVRPInstance: PVRPInstanceStruct, Node, plot_instance, get_fitting_layout
 using Plots
-using YAML: write_file, read_file
+using YAML
+using YAML: write_file, read_file, load_file, dump_file
 
 export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml
 
@@ -257,11 +258,11 @@ end
 # Function to load the solution from a YAML file
 function load_solution_from_yaml(filepath::String)::PVRPSolution
     # Read the YAML file
-    solution_dict = YAML.read_file(filepath)
+    solution_dict = YAML.load_file(filepath)
 
     # Reconstruct the PVRPSolution
     tourplan = Dict(
-        parse(Int, day) => VRPSolution(
+        parse(Int, string(day)) => VRPSolution(
             [Route(route["visited_nodes"], route["load"], route["length"]) for route in solution_dict["tourplan"][day]],
             0.0,  # Placeholder for total_duration
             0.0   # Placeholder for total_length
