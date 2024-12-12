@@ -2,9 +2,11 @@ module Solution
 
 using ..PVRPInstance: PVRPInstanceStruct, Node, plot_instance, get_fitting_layout
 using Plots
+using YAML: write_file, read_file
 
-export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution
+export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml
 
+# Define a mutable struct to represent a route
 mutable struct Route
     visited_nodes::Vector{Int64}
     load::Float64
@@ -15,28 +17,34 @@ mutable struct Route
     changed::Bool
 end
 
+# Constructor for Route with default values for cost, duration, feasible, and changed
 function Route(visited_nodes::Vector{Int}, load::Float64, length::Float64)
     Route(visited_nodes, load, length, 0.0, 0.0, true, false)
 end
 
+# Define a mutable struct to represent a VRP solution
 mutable struct VRPSolution
     routes::Vector{Route}
     total_duration::Float64
     total_length::Float64
 end
 
+# Define a comparison method for VRPSolution based on total duration
 Base.isless(a::VRPSolution, b::VRPSolution) = a.total_duration < b.total_duration
 
+# Define a mutable struct to represent a PVRP solution
 mutable struct PVRPSolution
     tourplan::Dict{Int, VRPSolution}
     plan_length::Float64
     plan_duration::Float64
 end
 
+# Constructor for PVRPSolution with default values
 function PVRPSolution(instance::PVRPInstanceStruct)
     PVRPSolution(Dict{Int, VRPSolution}(), 0.0, 0.0)
 end
 
+# Function to plot the solution for all days
 function plot_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)
     l = get_fitting_layout(inst.numberofdays)
  
@@ -52,7 +60,7 @@ function plot_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)
     return p
 end
 
-
+# Function to plot the solution for a specific day
 function plot_solution!(p::Plots.Plot, sol::VRPSolution, inst::PVRPInstanceStruct, day::Int)
     colours = [
         :firebrick3,
@@ -73,7 +81,7 @@ function plot_solution!(p::Plots.Plot, sol::VRPSolution, inst::PVRPInstanceStruc
     ]
     
     for (i, route) in enumerate(sol.routes)
-        # Passe die Indizes an, damit `0` (Depot) `nodes[1]` entspricht, und erhöhe alle anderen um 1
+        # Adjust indices so that `0` (Depot) corresponds to `nodes[1]`, and increment all others by 1
         x = [inst.nodes[1].x; [inst.nodes[n + 1].x for n in route.visited_nodes[2:end]]; inst.nodes[1].x]
         y = [inst.nodes[1].y; [inst.nodes[n + 1].y for n in route.visited_nodes[2:end]]; inst.nodes[1].y]
         
@@ -83,6 +91,7 @@ function plot_solution!(p::Plots.Plot, sol::VRPSolution, inst::PVRPInstanceStruc
     return p
 end
 
+# Function to recalculate the properties of a route
 function recalculate_route!(route::Route, instance::PVRPInstanceStruct)
     route.load = 0.0
     route.length = 0.0
@@ -103,7 +112,7 @@ function recalculate_route!(route::Route, instance::PVRPInstanceStruct)
     route.length += instance.distance_matrix[route.visited_nodes[end] + 1, 1]
 end
 
-
+# Function to remove a segment from a route and recalculate its properties
 function remove_segment!(route::Route, start_idx::Int, segment_length::Int, instance::PVRPInstanceStruct)::Float64
     if start_idx < 1 || start_idx + segment_length - 1 > length(route.visited_nodes)
         error("Invalid segment range: out of bounds.")
@@ -128,6 +137,7 @@ function remove_segment!(route::Route, start_idx::Int, segment_length::Int, inst
     return delta
 end
 
+# Function to insert a segment into a route and recalculate its properties
 function insert_segment!(route::Route, start_idx::Int, segment::Vector{Int}, instance::PVRPInstanceStruct)::Float64
     if start_idx < 1 || start_idx > length(route.visited_nodes) + 1
         error("Invalid insertion index: out of bounds.")
@@ -151,11 +161,12 @@ function insert_segment!(route::Route, start_idx::Int, segment::Vector{Int}, ins
     return delta
 end
 
-
+# Function to validate a route
 function validate_route(route::Route, instance::PVRPInstanceStruct)::Bool
     return validate_route(route, instance, 1)  # Default to day 1 if day is not provided
 end
 
+# Function to validate a route for a specific day
 function validate_route(route::Route, instance::PVRPInstanceStruct, day::Int)::Bool
     recalculate_route!(route, instance)
     
@@ -191,6 +202,7 @@ function validate_route(route::Route, instance::PVRPInstanceStruct, day::Int)::B
     return true
 end
 
+# Function to validate the entire solution
 function validate_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)::Bool
     for (day, vrp_solution) in sol.tourplan
         for route in vrp_solution.routes
@@ -202,10 +214,12 @@ function validate_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)::Bool
     return true
 end
 
+# Function to create a copy of a route
 function Base.copy(route::Route)
     return Route(copy(route.visited_nodes), route.load, route.length, route.cost, route.duration, route.feasible, route.changed)
 end
 
+# Function to display the solution
 function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstanceStruct, title::String)
     println(title)
     for day in sort(collect(keys(pvrp_solution.tourplan)))
@@ -214,6 +228,60 @@ function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstanceStr
             println("Route $index: $(route.visited_nodes), Load: $(route.load), Length: $(route.length)")
         end
     end
+end
+
+# Function to save the solution to a YAML file
+function save_solution_to_yaml(solution::PVRPSolution, filepath::String)
+    # Convert the PVRPSolution to a dictionary
+    solution_dict = Dict(
+        "tourplan" => Dict(
+            day => [
+                Dict(
+                    "visited_nodes" => route.visited_nodes,
+                    "load" => route.load,
+                    "length" => route.length,
+                    "duration" => route.duration,
+                    "feasible" => route.feasible,
+                ) for route in solution.tourplan[day].routes
+            ] for day in keys(solution.tourplan)
+        ),
+        "plan_length" => solution.plan_length,
+        "plan_duration" => solution.plan_duration,
+    )
+
+    # Write the dictionary to a YAML file
+    YAML.write_file(filepath, solution_dict)
+    println("Solution saved to $filepath")
+end
+
+# Function to load the solution from a YAML file
+function load_solution_from_yaml(filepath::String)::PVRPSolution
+    # Read the YAML file
+    solution_dict = YAML.read_file(filepath)
+
+    # Reconstruct the PVRPSolution
+    tourplan = Dict(
+        parse(Int, day) => VRPSolution(
+            [Route(route["visited_nodes"], route["load"], route["length"]) for route in solution_dict["tourplan"][day]],
+            0.0,  # Placeholder for total_duration
+            0.0   # Placeholder for total_length
+        ) for day in keys(solution_dict["tourplan"])
+    )
+    
+    # Return the reconstructed solution
+    return PVRPSolution(tourplan, solution_dict["plan_length"], solution_dict["plan_duration"])
+end
+
+# Function to save run information to a YAML file
+function save_run_info_to_yaml(seed::Int, runtime::Float64, cost::Float64, feasible::Bool, filepath::String)
+    run_info = Dict(
+        "seed" => seed,
+        "runtime" => runtime,
+        "cost" => cost,
+        "feasible" => feasible,
+    )
+    YAML.write_file(filepath, run_info)
+    println("Run information saved to $filepath")
 end
 
 end # module

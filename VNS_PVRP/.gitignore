@@ -1,0 +1,4 @@
+*.yaml
+solution.yaml
+runs/*.yaml
+
