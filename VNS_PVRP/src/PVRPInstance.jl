@@ -1,8 +1,8 @@
-module Instance
+module PVRPInstance
 
 using Plots
 
-export Node, PVRPInstance, read_instance, fill_distance_matrix!, plot_instance, get_fitting_layout, initialize_instance
+export Node, PVRPInstanceStruct, read_instance, fill_distance_matrix!, plot_instance, get_fitting_layout, initialize_instance
 
 mutable struct Node
     id::Int64
@@ -23,7 +23,7 @@ mutable struct Node
     end
 end
 
-mutable struct PVRPInstance
+mutable struct PVRPInstanceStruct
     problemtype::Int
     numberofvehicles::Int
     numberofcustomers::Int
@@ -33,7 +33,7 @@ mutable struct PVRPInstance
     nodes::Vector{Node}
     distance_matrix::Matrix{Float64}
 
-    function PVRPInstance(
+    function PVRPInstanceStruct(
         problemtype::Int, numberofvehicles::Int, numberofcustomers::Int,
         numberofdays::Int, maximumrouteduration::Int, vehicleload::Int, nodes::Vector{Node}
     )
@@ -50,7 +50,7 @@ function convert_binary_int(bits::Vector{Bool})::Int
     return Int(reduce((x, y) -> (x << 1) | UInt64(y), bits, init = 0))
 end
 
-function fill_distance_matrix!(instance::PVRPInstance)
+function fill_distance_matrix!(instance::PVRPInstanceStruct)
     num_nodes = length(instance.nodes)
     instance.distance_matrix .= Inf  
 
@@ -74,7 +74,7 @@ function calc_distance_matrix(x::Vector{Float64}, y::Vector{Float64}, rounding_f
     return [round(hypot(x[i] - x[j], y[i] - y[j]), digits = rounding_factor) for j = 1:n, i = 1:n]
 end
 
-function read_instance(filepath::String)::PVRPInstance
+function read_instance(filepath::String)::PVRPInstanceStruct
     # Read file lines
     lines = readlines(filepath)
 
@@ -148,8 +148,8 @@ function read_instance(filepath::String)::PVRPInstance
         end
     end
 
-    # Create the PVRPInstance with nodes and distance matrix
-    instance = PVRPInstance(
+    # Create the PVRPInstanceStruct with nodes and distance matrix
+    instance = PVRPInstanceStruct(
         problemtype, numberofvehicles, numberofcustomers, numberofdays,
         maximumrouteduration, vehicleload, nodes
     )
@@ -160,7 +160,7 @@ function read_instance(filepath::String)::PVRPInstance
     return instance
 end
 
-function plot_instance(inst::PVRPInstance; plotsize = (2000, 2000), show_legend = true, tickfontsize = 15)
+function plot_instance(inst::PVRPInstanceStruct; plotsize = (2000, 2000), show_legend = true, tickfontsize = 15)
     x_coords = [node.x for node in inst.nodes]
     y_coords = [node.y for node in inst.nodes]
 
@@ -199,7 +199,7 @@ function get_fitting_layout(nr_periods::Int)
     return @layout [grid(nr_rows, nr_columns)]
 end
 
-function initialize_instance(file_path::String)::PVRPInstance
+function initialize_instance(file_path::String)::PVRPInstanceStruct
     instance = read_instance(file_path)
     fill_distance_matrix!(instance)
     return instance

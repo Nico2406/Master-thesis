@@ -1,16 +1,13 @@
 module ConstructionHeuristics
 
-include("PVRPInstance.jl")
-include("PVRPSolution.jl")
-
-using Main.Instance: PVRPInstance, convert_binary_int
-using Main.Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, plot_solution, validate_route
-using Random
+using ..PVRPInstance: PVRPInstanceStruct, convert_binary_int
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, plot_solution, validate_route
+using Plots
 
 export nearest_neighbor
 
 # Initialize the visit combinations for each node in the instance
-function initialization(instance::PVRPInstance)
+function initialization(instance::PVRPInstanceStruct)
     for node in instance.nodes[2:end]  # Skip the depot (first node)
         chosen_combination = rand(node.visitcombinations)
         node.initialvisitcombination = chosen_combination
@@ -20,7 +17,7 @@ function initialization(instance::PVRPInstance)
 end
 
 # Find the nearest unvisited node from the current node for a given day
-function find_nearest_node(current_node_index::Int, instance::PVRPInstance, visited::Set{Int}, day::Int)
+function find_nearest_node(current_node_index::Int, instance::PVRPInstanceStruct, visited::Set{Int}, day::Int)
     nearest_node_index = nothing
     nearest_distance = Inf
 
@@ -38,7 +35,7 @@ function find_nearest_node(current_node_index::Int, instance::PVRPInstance, visi
 end
 
 # Create a big route for a given day by visiting all nodes that need to be visited on that day
-function create_big_route(instance::PVRPInstance, day::Int)::Route
+function create_big_route(instance::PVRPInstanceStruct, day::Int)::Route
     big_route = Route([instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, false, false)  # Start with the depot (id of the first node)
     current_node_index = 1  # Depot index
     visited = Set([current_node_index])
@@ -76,7 +73,7 @@ function create_big_route(instance::PVRPInstance, day::Int)::Route
 end
 
 # Split a big route into multiple feasible routes based on vehicle capacity and maximum route duration
-function split_routes(big_route::Route, instance::PVRPInstance, day::Int)::VRPSolution
+function split_routes(big_route::Route, instance::PVRPInstanceStruct, day::Int)::VRPSolution
     vrp_solution = VRPSolution(Vector{Route}(), 0.0, 0.0)
     current_route = Route([instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, true, false)
     vehicle_count = 0
@@ -126,7 +123,7 @@ function split_routes(big_route::Route, instance::PVRPInstance, day::Int)::VRPSo
 end
 
 # Construct a solution using the nearest neighbor heuristic
-function nearest_neighbor(instance::PVRPInstance)::PVRPSolution
+function nearest_neighbor(instance::PVRPInstanceStruct)::PVRPSolution
     initialization(instance)
 
     tourplan = Dict{Int, VRPSolution}()
@@ -139,12 +136,14 @@ function nearest_neighbor(instance::PVRPInstance)::PVRPSolution
         big_route = create_big_route(instance, day)
         big_routes[day] = big_route
 
+        """
         # Validate the big route using the function from PVRPSolution
         if validate_route(big_route, instance, day)
             # println("Big route for day $day is valid")
         else
             # println("Big route for day $day is invalid")
         end
+        """
     end
 
     # Split big routes into feasible routes and add to the tour plan
@@ -170,4 +169,4 @@ function AddNodeToRoute!(route::Route, node_id::Int)
     push!(route.visited_nodes, node_id)
 end
 
-end #module
+end # module

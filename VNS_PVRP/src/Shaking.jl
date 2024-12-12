@@ -1,12 +1,13 @@
 module Shaking
 
-using Main.Instance: PVRPInstance, Node, convert_binary_int
-using Main.Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!
+using ..PVRPInstance: PVRPInstanceStruct, Node, convert_binary_int
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!
 using Random: shuffle!
+using Plots
 
 export shaking!, move!
 
-function move!(route1::Route, route2::Route, start_idx::Int, segment_length::Int, instance::PVRPInstance, day::Int)::Float64
+function move!(route1::Route, route2::Route, start_idx::Int, segment_length::Int, instance::PVRPInstanceStruct, day::Int)::Float64
     original_length = length(route1.visited_nodes) + length(route2.visited_nodes)
     if start_idx < 1 || start_idx + segment_length - 1 > length(route1.visited_nodes)
         error("Invalid segment range: out of bounds in route1.")
@@ -50,7 +51,7 @@ function move!(route1::Route, route2::Route, start_idx::Int, segment_length::Int
     return delta_remove + delta_insert
 end
 
-function shaking!(solution::PVRPSolution, instance::PVRPInstance, day::Int)
+function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)
     if isempty(solution.tourplan[day].routes)
         return 0.0
     end
@@ -78,7 +79,7 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstance, day::Int)
         original_node_count = length(route1.visited_nodes) + length(route2.visited_nodes)
         delta = move!(route1, route2, start_idx, segment_length, instance, day)
         if delta == Inf
-            println("Shaking failed on day $day: No valid position found to insert the segment.")
+            #println("Shaking failed on day $day: No valid position found to insert the segment.")
             return 0.0
         end
         route1.changed = true
@@ -104,7 +105,7 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstance, day::Int)
 
         return delta
     catch e
-        println("Shaking failed on day $day: ", e)
+        #println("Shaking failed on day $day: ", e)
         return 0.0
     end
 end

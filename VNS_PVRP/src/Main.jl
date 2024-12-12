@@ -1,17 +1,10 @@
-include("PVRPInstance.jl")
-include("PVRPSolution.jl")
-include("ConstructionHeuristics.jl")
-include("LocalSearch.jl")
-include("Shaking.jl")
-include("VNS.jl")
-
-using Main.Instance: read_instance, PVRPInstance, plot_instance, initialize_instance
-using Main.Solution: PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_solution, display_solution
-using Main.VNS: test_vns!, calculate_cost
-using Main.ConstructionHeuristics: nearest_neighbor, create_big_route, split_routes
-using Main.LocalSearch: local_search!
-using Main.Shaking: shaking!
-using Random
+using Revise
+using VNS_PVRP
+using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance
+using VNS_PVRP.Solution: display_solution, plot_solution
+using VNS_PVRP.VNS: test_vns!, calculate_cost
+using Random  # Ensure this line is present
+using Plots
 
 function main()
     # Initialize instance

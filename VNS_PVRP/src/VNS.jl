@@ -1,15 +1,16 @@
 module VNS
 
-using Main.Instance: PVRPInstance
-using Main.Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution
-using Main.ConstructionHeuristics: nearest_neighbor
-using Main.LocalSearch: local_search!
-using Main.Shaking: shaking!
-using Random
+using ..PVRPInstance: PVRPInstanceStruct
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution
+using ..ConstructionHeuristics: nearest_neighbor
+using ..LocalSearch: local_search!
+using ..Shaking: shaking!
+using Random  # Ensure this line is present
+using Plots
 
 export vns!, test_vns!, calculate_cost
 
-function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
+function vns!(instance::PVRPInstanceStruct, seed::Int)::PVRPSolution
     Random.seed!(seed)
     # println("Random seed set to $seed")
 
@@ -24,9 +25,9 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
         error("Initial solution is invalid.")
     end
 
-    display_solution(current_solution, instance, "Initial solution")
-    println("Initial solution cost: $best_cost")
-    println("Construction method: $construction_method")
+    #display_solution(current_solution, instance, "Initial solution")
+    #println("Initial solution cost: $best_cost")
+    #println("Construction method: $construction_method")
 
     # Local search
     local_search_method = "2opt-first"
@@ -45,8 +46,8 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
     end
 
     current_cost = calculate_cost(current_solution)
-    println("Cost after initial local search: $current_cost, Δ: $(current_cost - best_cost)")
-    println("Local search method: $local_search_method")
+    #println("Cost after initial local search: $current_cost, Δ: $(current_cost - best_cost)")
+    #println("Local search method: $local_search_method")
 
     # ganz nach oben
     no_improvement_counter = 0
@@ -54,7 +55,7 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
     max_no_improvement = 10
 
     for iteration in 1:max_iterations
-        println("Iteration: $iteration")  # Debug print
+        #println("Iteration: $iteration")  # Debug print
         if no_improvement_counter >= max_no_improvement
             break
         end
@@ -81,7 +82,7 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
             end
             try
                 delta_shaking = shaking!(shaken_solution, instance, day)
-                println("Delta after shaking on day $day: $delta_shaking")
+                #println("Delta after shaking on day $day: $delta_shaking")
                 if delta_shaking == Inf
                     continue
                 end
@@ -110,7 +111,7 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
         for day in sort(collect(keys(shaken_solution.tourplan)))
             for route in shaken_solution.tourplan[day].routes
                 if route.changed
-                    println("Performing local search on day $day, route")  # Debug print
+                    #println("Performing local search on day $day, route")  # Debug print
                     Δ = local_search!(route, instance, local_search_method, 1000)
                     if !validate_solution(shaken_solution, instance)
                         println("Solution became invalid after local search on day $day. Skipping route.")
@@ -121,7 +122,7 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
         end
 
         shaken_cost = calculate_cost(shaken_solution)
-        println("Cost after shaking and local search: $shaken_cost, Δ: $(shaken_cost - current_cost)")
+        #println("Cost after shaking and local search: $shaken_cost, Δ: $(shaken_cost - current_cost)")
 
         # Acceptance criterion
         if shaken_cost < best_cost
@@ -139,7 +140,7 @@ function vns!(instance::PVRPInstance, seed::Int)::PVRPSolution
     return best_solution
 end
 
-function test_vns!(instance::PVRPInstance, num_runs::Int)
+function test_vns!(instance::PVRPInstanceStruct, num_runs::Int)
     results = []
     for i in 1:num_runs
         # Reinitialize instance to ensure a fresh start for each run
@@ -148,7 +149,7 @@ function test_vns!(instance::PVRPInstance, num_runs::Int)
         solution = vns!(fresh_instance, seed)
         is_solution_valid = validate_solution(solution, fresh_instance)
         push!(results, (seed, solution, is_solution_valid))
-        # println("Best solution cost: $(calculate_cost(solution))")  # Remove this line
+        # println("Best solution cost: $(calculate_cost(solution))")
     end
     return results
 end

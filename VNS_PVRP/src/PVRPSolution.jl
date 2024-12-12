@@ -1,6 +1,6 @@
 module Solution
 
-using Main.Instance: PVRPInstance, get_fitting_layout, plot_instance
+using ..PVRPInstance: PVRPInstanceStruct, Node, plot_instance, get_fitting_layout
 using Plots
 
 export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution
@@ -33,11 +33,11 @@ mutable struct PVRPSolution
     plan_duration::Float64
 end
 
-function PVRPSolution(instance::PVRPInstance)
+function PVRPSolution(instance::PVRPInstanceStruct)
     PVRPSolution(Dict{Int, VRPSolution}(), 0.0, 0.0)
 end
 
-function plot_solution(sol::PVRPSolution, inst::PVRPInstance)
+function plot_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)
     l = get_fitting_layout(inst.numberofdays)
  
     plots = Dict{Int, Plots.Plot}()
@@ -53,7 +53,7 @@ function plot_solution(sol::PVRPSolution, inst::PVRPInstance)
 end
 
 
-function plot_solution!(p::Plots.Plot, sol::VRPSolution, inst::PVRPInstance, day::Int)
+function plot_solution!(p::Plots.Plot, sol::VRPSolution, inst::PVRPInstanceStruct, day::Int)
     colours = [
         :firebrick3,
         :chartreuse4,
@@ -83,7 +83,7 @@ function plot_solution!(p::Plots.Plot, sol::VRPSolution, inst::PVRPInstance, day
     return p
 end
 
-function recalculate_route!(route::Route, instance::PVRPInstance)
+function recalculate_route!(route::Route, instance::PVRPInstanceStruct)
     route.load = 0.0
     route.length = 0.0
     for i in 1:(length(route.visited_nodes) - 1)
@@ -104,7 +104,7 @@ function recalculate_route!(route::Route, instance::PVRPInstance)
 end
 
 
-function remove_segment!(route::Route, start_idx::Int, segment_length::Int, instance::PVRPInstance)::Float64
+function remove_segment!(route::Route, start_idx::Int, segment_length::Int, instance::PVRPInstanceStruct)::Float64
     if start_idx < 1 || start_idx + segment_length - 1 > length(route.visited_nodes)
         error("Invalid segment range: out of bounds.")
     end
@@ -128,7 +128,7 @@ function remove_segment!(route::Route, start_idx::Int, segment_length::Int, inst
     return delta
 end
 
-function insert_segment!(route::Route, start_idx::Int, segment::Vector{Int}, instance::PVRPInstance)::Float64
+function insert_segment!(route::Route, start_idx::Int, segment::Vector{Int}, instance::PVRPInstanceStruct)::Float64
     if start_idx < 1 || start_idx > length(route.visited_nodes) + 1
         error("Invalid insertion index: out of bounds.")
     end
@@ -152,11 +152,11 @@ function insert_segment!(route::Route, start_idx::Int, segment::Vector{Int}, ins
 end
 
 
-function validate_route(route::Route, instance::PVRPInstance)::Bool
+function validate_route(route::Route, instance::PVRPInstanceStruct)::Bool
     return validate_route(route, instance, 1)  # Default to day 1 if day is not provided
 end
 
-function validate_route(route::Route, instance::PVRPInstance, day::Int)::Bool
+function validate_route(route::Route, instance::PVRPInstanceStruct, day::Int)::Bool
     recalculate_route!(route, instance)
     
     if route.load > instance.vehicleload
@@ -191,7 +191,7 @@ function validate_route(route::Route, instance::PVRPInstance, day::Int)::Bool
     return true
 end
 
-function validate_solution(sol::PVRPSolution, inst::PVRPInstance)::Bool
+function validate_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)::Bool
     for (day, vrp_solution) in sol.tourplan
         for route in vrp_solution.routes
             if !validate_route(route, inst, day)
@@ -206,7 +206,7 @@ function Base.copy(route::Route)
     return Route(copy(route.visited_nodes), route.load, route.length, route.cost, route.duration, route.feasible, route.changed)
 end
 
-function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstance, title::String)
+function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstanceStruct, title::String)
     println(title)
     for day in sort(collect(keys(pvrp_solution.tourplan)))
         println("Day $day:")
