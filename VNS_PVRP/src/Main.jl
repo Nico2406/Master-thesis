@@ -23,7 +23,7 @@ function main()
 
     # Perform VNS test runs
     println("Performing VNS test runs...")
-    results = test_vns!(instance, 5) 
+    results = test_vns!(instance, 5, save_folder) 
 
     for (seed, solution, is_solution_valid) in results
         println("========================================")
@@ -37,22 +37,7 @@ function main()
         println("Overall length: ", calculate_cost(solution)) 
         println("Overall duration: ", solution.plan_duration)
         println("========================================")
-
-        # Create a folder for each solution
-        solution_folder = joinpath(save_folder, "solution_seed_$seed")
-        mkpath(solution_folder)
-
-        # Save the solution to a YAML file
-        solution_filepath = joinpath(solution_folder, "solution.yaml")
-        save_solution_to_yaml(solution, solution_filepath)
-
-        # Save run information to a YAML file
-        runtime = 0.0  # Placeholder for runtime, replace with actual runtime if available
-        cost = calculate_cost(solution)
-        run_info_filepath = joinpath(solution_folder, "run_info.yaml")
-        save_run_info_to_yaml(seed, runtime, cost, is_solution_valid, run_info_filepath)
     end
-
 
     # Example of loading a solution from a YAML file
     loaded_solution_filepath = joinpath(save_folder, "solution_seed_2019", "solution.yaml")

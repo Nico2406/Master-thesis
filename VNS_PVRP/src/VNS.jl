@@ -1,16 +1,18 @@
 module VNS
 
 using ..PVRPInstance: PVRPInstanceStruct
-using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
 using ..Shaking: shaking!
 using Random  # Ensure this line is present
 using Plots
+using FilePathsBase: mkpath, joinpath
+using YAML
 
 export vns!, test_vns!, calculate_cost
 
-function vns!(instance::PVRPInstanceStruct, seed::Int)::PVRPSolution
+function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVRPSolution
     Random.seed!(seed)
     # println("Random seed set to $seed")
 
@@ -137,16 +139,30 @@ function vns!(instance::PVRPInstanceStruct, seed::Int)::PVRPSolution
         current_cost = shaken_cost
     end
 
+    # Create a folder for each solution
+    solution_folder = joinpath(save_folder, "solution_seed_$seed")
+    mkpath(solution_folder)
+
+    # Save the solution to a YAML file
+    solution_filepath = joinpath(solution_folder, "solution.yaml")
+    save_solution_to_yaml(best_solution, solution_filepath)
+
+    # Save run information to a YAML file
+    runtime = 0.0  # Placeholder for runtime, replace with actual runtime if available
+    cost = calculate_cost(best_solution)
+    run_info_filepath = joinpath(solution_folder, "run_info.yaml")
+    save_run_info_to_yaml(seed, runtime, cost, true, run_info_filepath)
+
     return best_solution
 end
 
-function test_vns!(instance::PVRPInstanceStruct, num_runs::Int)
+function test_vns!(instance::PVRPInstanceStruct, num_runs::Int, save_folder::String)
     results = []
     for i in 1:num_runs
         # Reinitialize instance to ensure a fresh start for each run
         fresh_instance = deepcopy(instance)
         seed = rand(1:10000)
-        solution = vns!(fresh_instance, seed)
+        solution = vns!(fresh_instance, seed, save_folder)
         is_solution_valid = validate_solution(solution, fresh_instance)
         push!(results, (seed, solution, is_solution_valid))
         # println("Best solution cost: $(calculate_cost(solution))")
