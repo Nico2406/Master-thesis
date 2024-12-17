@@ -11,7 +11,8 @@ using YAML
 function main()
 
     # Initialize instance
-    instance = initialize_instance("instances/p03.txt")
+    instance_name = "p03"
+    instance = initialize_instance("instances/$instance_name.txt")
 
     # Plot the instance
     plot = plot_instance(instance)
@@ -19,11 +20,23 @@ function main()
 
     # Create a folder to save the solutions and run information
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
-    mkpath(save_folder)
+    instance_folder = joinpath(save_folder, instance_name)
+    mkpath(instance_folder)
 
     # Perform VNS test runs
-    println("Performing VNS test runs...")
-    results = test_vns!(instance, 5, save_folder) 
+
+    println("Performing VNS test runs on instance: $instance_name.txt")
+    println("========================================")
+    number_of_runs = 5
+    results = test_vns!(instance, number_of_runs, instance_folder) 
+
+    println("Instance: $instance_name.txt")
+    println("Number of Vehicles: "    , instance.numberofvehicles)
+    println("Vehicle Capacity: "      , instance.vehicleload) 
+    println("Number of Nodes: "       , instance.numberofcustomers)   
+    println("Number of Days: "        , instance.numberofdays)
+    println("Number of Runs: "        , number_of_runs)
+    println("========================================")
 
     for (seed, solution, is_solution_valid) in results
         println("========================================")
@@ -38,11 +51,6 @@ function main()
         println("Overall duration: ", solution.plan_duration)
         println("========================================")
     end
-
-    # Example of loading a solution from a YAML file
-    loaded_solution_filepath = joinpath(save_folder, "solution_seed_2019", "solution.yaml")
-    loaded_solution = load_solution_from_yaml(loaded_solution_filepath)
-    display_solution(loaded_solution, instance, "Loaded Solution for seed 2019")
 end
 
 main()

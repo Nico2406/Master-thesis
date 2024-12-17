@@ -14,7 +14,7 @@ using .Solution: Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!
 using .ConstructionHeuristics: nearest_neighbor
 using .LocalSearch: local_search!
 using .Shaking: shaking!
-using .VNS: vns!, test_vns!, calculate_cost
+using .VNS: vns!, test_vns!
 
 using Plots 
 

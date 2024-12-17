@@ -3,7 +3,7 @@ module Solution
 using ..PVRPInstance: PVRPInstanceStruct, Node, plot_instance, get_fitting_layout
 using Plots
 using YAML
-using YAML: write_file, read_file, load_file, dump_file
+using YAML: write_file, load_file
 
 export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml
 
