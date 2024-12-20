@@ -10,7 +10,7 @@ using Plots
 using FilePathsBase: mkpath, joinpath
 using YAML
 
-export vns!, test_vns!, calculate_cost
+export vns!, test_vns!
 
 function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVRPSolution
     Random.seed!(seed)
@@ -20,7 +20,14 @@ function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVR
     construction_method = "nearest_neighbor"
     current_solution = nearest_neighbor(instance)
     best_solution = deepcopy(current_solution)
-    best_cost = calculate_cost(best_solution)
+    for day in keys(best_solution.tourplan)
+        for route in best_solution.tourplan[day].routes
+            recalculate_route!(route, instance)
+        end
+    end
+    best_solution.plan_length = sum(route.length for day in keys(best_solution.tourplan) for route in best_solution.tourplan[day].routes)
+    best_solution.plan_duration = sum(route.duration for day in keys(best_solution.tourplan) for route in best_solution.tourplan[day].routes)
+    best_cost = best_solution.plan_length
 
     # Validate initial solution
     if !validate_solution(current_solution, instance)
@@ -47,7 +54,15 @@ function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVR
         end
     end
 
-    current_cost = calculate_cost(current_solution)
+    for day in keys(current_solution.tourplan)
+        for route in current_solution.tourplan[day].routes
+            recalculate_route!(route, instance)
+        end
+    end
+    current_solution.plan_length = sum(route.length for day in keys(current_solution.tourplan) for route in current_solution.tourplan[day].routes)
+    current_solution.plan_duration = sum(route.duration for day in keys(current_solution.tourplan) for route in current_solution.tourplan[day].routes)
+    current_cost = current_solution.plan_length
+
     #println("Cost after initial local search: $current_cost, Δ: $(current_cost - best_cost)")
     #println("Local search method: $local_search_method")
 
@@ -123,7 +138,15 @@ function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVR
             end
         end
 
-        shaken_cost = calculate_cost(shaken_solution)
+        for day in keys(shaken_solution.tourplan)
+            for route in shaken_solution.tourplan[day].routes
+                recalculate_route!(route, instance)
+            end
+        end
+        shaken_solution.plan_length = sum(route.length for day in keys(shaken_solution.tourplan) for route in shaken_solution.tourplan[day].routes)
+        shaken_solution.plan_duration = sum(route.duration for day in keys(shaken_solution.tourplan) for route in shaken_solution.tourplan[day].routes)
+        shaken_cost = shaken_solution.plan_length
+
         #println("Cost after shaking and local search: $shaken_cost, Δ: $(shaken_cost - current_cost)")
 
         # Acceptance criterion
@@ -149,7 +172,7 @@ function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVR
 
     # Save run information to a YAML file
     runtime = 0.0  # Placeholder for runtime, replace with actual runtime if available
-    cost = calculate_cost(best_solution)
+    cost = best_solution.plan_length
     run_info_filepath = joinpath(solution_folder, "run_info.yaml")
     save_run_info_to_yaml(seed, runtime, cost, true, run_info_filepath)
 
@@ -165,19 +188,9 @@ function test_vns!(instance::PVRPInstanceStruct, num_runs::Int, save_folder::Str
         solution = vns!(fresh_instance, seed, save_folder)
         is_solution_valid = validate_solution(solution, fresh_instance)
         push!(results, (seed, solution, is_solution_valid))
-        # println("Best solution cost: $(calculate_cost(solution))")
+        # println("Best solution cost: $(solution.plan_length)")
     end
     return results
-end
-
-function calculate_cost(solution::PVRPSolution)::Float64
-    total_cost = 0.0
-    for day in sort(collect(keys(solution.tourplan)))
-        for route in solution.tourplan[day].routes
-            total_cost += route.length
-        end
-    end
-    return total_cost
 end
 
 end # module

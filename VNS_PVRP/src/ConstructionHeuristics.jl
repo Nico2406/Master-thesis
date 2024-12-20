@@ -72,53 +72,34 @@ function create_big_route(instance::PVRPInstanceStruct, day::Int)::Route
     return big_route
 end
 
-# Split a big route into multiple feasible routes based on vehicle capacity and maximum route duration
+# Split a big route into multiple routes 
 function split_routes(big_route::Route, instance::PVRPInstanceStruct, day::Int)::VRPSolution
     vrp_solution = VRPSolution(Vector{Route}(), 0.0, 0.0)
-    current_route = Route([instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, true, false)
-    vehicle_count = 0
 
-    # Create a list of remaining nodes to process
-    remaining_nodes = big_route.visited_nodes[2:end-1]  # Exclude depot at start and end
+    # Divide the nodes equally among the number of vehicles
+    total_nodes = big_route.visited_nodes[2:end-1]  # Exclude depot at start and end
+    nodes_per_vehicle = ceil(Int, length(total_nodes) / instance.numberofvehicles)
 
-    # Split nodes into feasible routes
-    while !isempty(remaining_nodes)
-        node_id = remaining_nodes[1]  # Pick the first node
-        node_index = findfirst(x -> x.id == node_id, instance.nodes)
+    # println("Day $day: Starting split_routes with ", length(total_nodes), " nodes to process.")
 
-        # Tentative calculations for adding this node to the current route
-        tentative_load = current_route.load + instance.nodes[node_index].demand / instance.nodes[node_index].frequency
-        last_node_index = findfirst(x -> x.id == current_route.visited_nodes[end], instance.nodes)
-        tentative_length = current_route.length + instance.distance_matrix[last_node_index, node_index]
+    for i in 1:instance.numberofvehicles
+        start_index = (i - 1) * nodes_per_vehicle + 1
+        end_index = min(i * nodes_per_vehicle, length(total_nodes))
 
-        if tentative_load <= instance.vehicleload && tentative_length <= instance.maximumrouteduration
-            # Add node to the current route
-            AddNodeToRoute!(current_route, node_id)
-            current_route.load = tentative_load
-            current_route.length = tentative_length
-            popfirst!(remaining_nodes)  # Remove the node from remaining nodes
-        else
-            # Finalize the current route and start a new one
-            if current_route.visited_nodes[end] != instance.nodes[1].id
-                AddNodeToRoute!(current_route, instance.nodes[1].id)
-            end
-            recalculate_route!(current_route, instance)
-            push!(vrp_solution.routes, current_route)
-
-            # Start a new route with the remaining nodes
-            current_route = Route([instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, true, false)
+        if start_index > length(total_nodes)
+            break
         end
+
+        # Create a route for the current vehicle
+        route_nodes = [instance.nodes[1].id; total_nodes[start_index:end_index]; instance.nodes[1].id]
+        route = Route(route_nodes, 0.0, 0.0, 0.0, 0.0, true, false)
+        recalculate_route!(route, instance)
+
+        push!(vrp_solution.routes, route)
+        # println("Route $i: ", route.visited_nodes, ", Load: ", route.load, ", Length: ", route.length)
     end
 
-    # Finalize the last route if it has visited nodes
-    if length(current_route.visited_nodes) > 1
-        if current_route.visited_nodes[end] != instance.nodes[1].id
-            AddNodeToRoute!(current_route, instance.nodes[1].id)
-        end
-        recalculate_route!(current_route, instance)
-        push!(vrp_solution.routes, current_route)
-    end
-
+    # println("Day $day: Completed split_routes. Total routes created: ", length(vrp_solution.routes))
     return vrp_solution
 end
 
