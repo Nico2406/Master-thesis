@@ -38,18 +38,39 @@ function main()
     println("Number of Runs: "        , number_of_runs)
     println("========================================")
 
+    best_solution = nothing
+    best_length = Inf
+    best_seed = nothing
+    best_validity = false
+
     for (seed, solution, is_solution_valid) in results
+        if solution.plan_length < best_length
+            best_solution = solution
+            best_length = solution.plan_length
+            best_seed = seed
+            best_validity = is_solution_valid
+        end
+    end
+
+    if best_solution !== nothing
         println("========================================")
-        println("Seed: $seed")
-        println("Vehicle Capacity: ", instance.vehicleload)
-        display_solution(solution, instance, "Solution for seed $seed")
-        plot = plot_solution(solution, instance)
+        println("Best Solution:")
+        println("Seed: $best_seed")
+        println("Solution valid: ", best_validity)
+        println("Overall length: ", best_solution.plan_length)
+        println("Overall duration: ", best_solution.plan_duration)
+        plot = plot_solution(best_solution, instance)
         display(plot)
-        println("Validating solution for seed $seed:")
-        println("Solution valid: ", is_solution_valid)
-        println("Overall length: ", solution.plan_length)
-        println("Overall duration: ", solution.plan_duration)
+        display_solution(best_solution, instance, "Best Solution")
         println("========================================")
+        for day in sort(collect(keys(best_solution.tourplan)))
+            println("Day $day:")
+            for (index, route) in enumerate(best_solution.tourplan[day].routes)
+                println("Route $index: $(route.visited_nodes), Load: $(route.load), Length: $(route.length), Feasible: $(route.feasible)")
+            end
+        end
+    else
+        println("No valid solution found.")
     end
 end
 
