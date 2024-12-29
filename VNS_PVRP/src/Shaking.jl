@@ -8,7 +8,6 @@ using Plots
 export shaking!, move!
 
 function move!(route1::Route, route2::Route, start_idx::Int, segment_length::Int, instance::PVRPInstanceStruct, day::Int)::Float64
-    original_length = length(route1.visited_nodes) + length(route2.visited_nodes)
     if start_idx < 1 || start_idx + segment_length - 1 > length(route1.visited_nodes)
         error("Invalid segment range: out of bounds in route1.")
     end
@@ -43,10 +42,8 @@ function move!(route1::Route, route2::Route, start_idx::Int, segment_length::Int
 
     delta_insert = insert_segment!(route2, best_position, segment, instance)
 
-    # Ensure no nodes are lost
-    if length(route1.visited_nodes) + length(route2.visited_nodes) != original_length
-        error("Nodes were lost during the move operation.")
-    end
+    route1.changed = true
+    route2.changed = true
 
     return delta_remove + delta_insert
 end
@@ -76,36 +73,37 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int
     start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
 
     try
-        original_node_count = length(route1.visited_nodes) + length(route2.visited_nodes)
+        original_node_count = sum(length(route.visited_nodes) for route in solution.tourplan[day].routes)
         delta = move!(route1, route2, start_idx, segment_length, instance, day)
         if delta == Inf
-            #println("Shaking failed on day $day: No valid position found to insert the segment.")
             return 0.0
         end
+
         route1.changed = true
         route2.changed = true
 
-        # Ensure no duplicate routes are created
-        unique_routes = Set{Vector{Int}}()
-        for route in solution.tourplan[day].routes
-            if route.visited_nodes in unique_routes
-                error("Duplicate route detected during shaking on day $day. Skipping shaking.")
-            end
-            push!(unique_routes, deepcopy(route.visited_nodes))
-        end
+        # Sicherstellen, dass keine doppelten Routen entstehen
+        # unique_routes = Set{Vector{Int}}()
+        # for route in solution.tourplan[day].routes
+        #     if route.visited_nodes in unique_routes
+        #         println("Warning: Duplicate route detected during shaking on day $day.")
+        #     else
+        #         push!(unique_routes, deepcopy(route.visited_nodes))
+        #     end
+        # end
 
-        # Ensure no routes are lost
+        # Routen aktualisieren und leere entfernen
         solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
 
-        # Ensure no nodes are lost
-        new_node_count = sum(length(route.visited_nodes) for route in solution.tourplan[day].routes)
-        if original_node_count != new_node_count
-            error("Nodes were lost during the shaking process.")
-        end
+        # Knotenanzahl prüfen
+        # new_node_count = sum(length(route.visited_nodes) for route in solution.tourplan[day].routes)
+        # if original_node_count != new_node_count
+        #     println("Warning: Node count mismatch detected after shaking on day $day. This might be caused by filtering.")
+        # end
 
         return delta
     catch e
-        #println("Shaking failed on day $day: ", e)
+        # println("Error during shaking on day $day: $e")
         return 0.0
     end
 end

@@ -203,6 +203,21 @@ function validate_route(route::Route, instance::PVRPInstanceStruct, day::Int)::B
         return false
     end
 
+    # Check if all the demand is picked up for each customer
+    customer_demands = Dict{Int, Float64}()
+    for node in route.visited_nodes[2:end-1]
+        if node > 0
+            customer_demands[node] = get(customer_demands, node, 0.0) + instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency
+        end
+    end
+
+    for (node_id, demand) in customer_demands
+        if demand != instance.nodes[node_id + 1].demand / instance.nodes[node_id + 1].frequency
+            println("Constraint violated: Demand for node $node_id is not fully picked up. Expected: $(instance.nodes[node_id + 1].demand / instance.nodes[node_id + 1].frequency), Found: $demand")
+            return false
+        end
+    end
+
     return true
 end
 
@@ -232,7 +247,8 @@ function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstanceStr
     for day in sort(collect(keys(pvrp_solution.tourplan)))
         println("Day $day:")
         for (index, route) in enumerate(pvrp_solution.tourplan[day].routes)
-            println("Route $index: $(route.visited_nodes), Load: $(route.load), Length: $(route.length)")
+            println("Route $index: $(route.visited_nodes)")
+            println("Load: $(route.load), Length: $(route.length), Feasible: $(route.feasible)")
         end
     end
 end

@@ -11,7 +11,7 @@ using YAML
 function main()
 
     # Initialize instance
-    instance_name = "p01"
+    instance_name = "p02"
     instance = initialize_instance("instances/$instance_name.txt")
 
     # Plot the instance
@@ -27,7 +27,7 @@ function main()
 
     println("Performing VNS test runs on instance: $instance_name.txt")
     println("========================================")
-    number_of_runs = 5
+    number_of_runs = 50
     results = test_vns!(instance, number_of_runs, instance_folder) 
 
     println("Instance: $instance_name.txt")
@@ -63,12 +63,6 @@ function main()
         display(plot)
         display_solution(best_solution, instance, "Best Solution")
         println("========================================")
-        for day in sort(collect(keys(best_solution.tourplan)))
-            println("Day $day:")
-            for (index, route) in enumerate(best_solution.tourplan[day].routes)
-                println("Route $index: $(route.visited_nodes), Load: $(route.load), Length: $(route.length), Feasible: $(route.feasible)")
-            end
-        end
     else
         println("No valid solution found.")
     end
