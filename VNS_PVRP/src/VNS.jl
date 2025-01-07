@@ -1,19 +1,20 @@
 module VNS
 
 using ..PVRPInstance: PVRPInstanceStruct
-using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, recalculate_plan_length!
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
 using ..Shaking: shaking!, change_visit_combinations!
-using Random  # Ensure this line is present
-using Plots
+using Random
 using FilePathsBase: mkpath, joinpath
-using YAML
 
 export vns!, test_vns!
 
-function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVRPSolution
+function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::String; seed::Int=rand(1:10000))::Tuple{PVRPSolution, VNSLogbook, Int}
     Random.seed!(seed)
+
+    # Initialize the logbook
+    logbook = initialize_logbook()
 
     # Generate initial solution
     current_solution = nearest_neighbor(instance)
@@ -24,7 +25,9 @@ function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVR
         end
     end
 
-    if !validate_solution(current_solution, instance)
+    # Validate initial solution
+    is_current_solution_feasible = validate_solution(current_solution, instance)
+    if !is_current_solution_feasible
         error("Initial solution is invalid.")
     end
 
@@ -48,28 +51,52 @@ function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVR
                 end
             end
 
-            if validate_solution(current_solution, instance)
+            # Recalculate the total plan length and duration
+            recalculate_plan_length!(current_solution)
+
+            # Validate the current solution
+            is_current_solution_feasible = validate_solution(current_solution, instance)
+
+            # Update the best solution if feasible
+            if is_current_solution_feasible && current_solution.plan_length < best_solution.plan_length
                 best_solution = deepcopy(current_solution)
             end
+
+            # Update logbook
+            update_logbook!(
+                logbook,
+                iteration,
+                current_solution.plan_length,
+                best_solution.plan_length,
+                best_solution.plan_length,  # Placeholder for best feasible
+                Dict("destroy_param" => 0.5),
+                feasible=is_current_solution_feasible
+            )
         catch e
             println("Error during iteration $iteration: $e")
         end
     end
 
-    save_solution_to_yaml(best_solution, joinpath(save_folder, "solution.yaml"))
-    return best_solution
+    # Create the necessary directories
+    instance_folder = joinpath(save_folder, instance_name)
+    seed_folder = joinpath(instance_folder, string(seed))
+    mkpath(seed_folder)
+
+    # Save the solution, logbook, and run information
+    save_solution_to_yaml(best_solution, joinpath(seed_folder, "solution.yaml"))
+    save_logbook_to_yaml(logbook, joinpath(seed_folder, "logbook.yaml"))
+    save_run_info_to_yaml(seed, 0.0, best_solution.plan_length, is_current_solution_feasible, joinpath(seed_folder, "run_info.yaml"))
+
+    return best_solution, logbook, seed
 end
 
-function test_vns!(instance::PVRPInstanceStruct, num_runs::Int, save_folder::String)
+function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String)
     results = []
     for i in 1:num_runs
         # Reinitialize instance to ensure a fresh start for each run
         fresh_instance = deepcopy(instance)
-        seed = rand(1:10000)
-        solution = vns!(fresh_instance, seed, save_folder)
-        is_solution_valid = validate_solution(solution, fresh_instance)
-        push!(results, (seed, solution, is_solution_valid))
-        # println("Best solution cost: $(solution.plan_length)")
+        best_solution, logbook, seed = vns!(fresh_instance, instance_name, save_folder)
+        push!(results, (seed, best_solution, logbook, is_current_solution_feasible))
     end
     return results
 end

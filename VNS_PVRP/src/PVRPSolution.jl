@@ -5,7 +5,7 @@ using Plots
 using YAML
 using YAML: write_file, load_file
 
-export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml
+export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!
 
 # Define a mutable struct to represent a route
 mutable struct Route
@@ -176,7 +176,7 @@ function validate_route(route::Route, instance::PVRPInstanceStruct, day::Int)::B
 
     # Temporary: Print capacity issues instead of failing validation
     if route.load > instance.vehicleload
-        println("Warning: Load exceeds vehicle capacity on Day $day. Route Load: $(route.load), Vehicle Capacity: $(instance.vehicleload).")
+       # println("Warning: Load exceeds vehicle capacity on Day $day. Route Load: $(route.load), Vehicle Capacity: $(instance.vehicleload).")
     end
 
     if route.length + instance.distance_matrix[route.visited_nodes[end] + 1, 1] > instance.maximumrouteduration
@@ -305,6 +305,106 @@ function save_run_info_to_yaml(seed::Int, runtime::Float64, cost::Float64, feasi
     )
     YAML.write_file(filepath, run_info)
     println("Run information saved to $filepath")
+end
+
+# Define a structure for the logbook
+mutable struct VNSLogbook
+    iteration::Vector{Int}
+    best_solution_length::Vector{Float64}
+    current_solution_length::Vector{Float64}
+    best_feasible_solution_length::Vector{Float64}
+    parameters::Dict{String, Vector{Float64}}  # Example: destroy_param
+end
+
+# Initialize the logbook
+function initialize_logbook()::VNSLogbook
+    return VNSLogbook([], [], [], [], Dict{String, Vector{Float64}}())
+end
+
+# Update the logbook with the current iteration data
+function update_logbook!(
+    logbook::VNSLogbook,
+    iteration::Int,
+    current_length::Float64,
+    best_length::Float64,
+    best_feasible_length::Float64,
+    params::Dict{String, Float64} = Dict();
+    feasible::Bool = true
+)
+    push!(logbook.iteration, iteration)
+    push!(logbook.current_solution_length, current_length)
+    push!(logbook.best_solution_length, best_length)
+    push!(logbook.best_feasible_solution_length, best_feasible_length)
+
+    for (key, value) in params
+        if !haskey(logbook.parameters, key)
+            logbook.parameters[key] = []
+        end
+        push!(logbook.parameters[key], value)
+    end
+end
+
+# Plot the logbook data
+function plot_logbook(logbook::VNSLogbook, instance_name::String, additional_info::String, output_dir::String)::Plots.Plot
+    # Plot best, best feasible, and current solution lengths
+    sols_p = plot(
+        logbook.iteration,
+        [logbook.best_solution_length, logbook.best_feasible_solution_length, logbook.current_solution_length],
+        label = ["Best Solution" "Best Feasible Solution" "Current Solution"],
+        xlabel = "Iteration",
+        ylabel = "Solution Length",
+        title = "Solution Evolution",
+        size = (1200, 800)
+    )
+    savefig(sols_p, joinpath(output_dir, "$(instance_name)_solution_evolution_$(additional_info).png"))
+
+    # Plot parameters
+    if !isempty(logbook.parameters)
+        for (param_name, values) in logbook.parameters
+            params_p = plot(
+                logbook.iteration,
+                values,
+                label = [param_name],
+                xlabel = "Iteration",
+                ylabel = "Parameter Value",
+                title = "$(param_name) Evolution",
+                size = (1200, 800)
+            )
+            savefig(params_p, joinpath(output_dir, "$(instance_name)_$(param_name)_evolution_$(additional_info).png"))
+        end
+    end
+
+    return sols_p
+end
+
+# Function to save the logbook to a YAML file
+function save_logbook_to_yaml(logbook::VNSLogbook, filepath::String)
+    # Convert the VNSLogbook to a dictionary
+    logbook_dict = Dict(
+        "iteration" => logbook.iteration,
+        "best_solution_length" => logbook.best_solution_length,
+        "current_solution_length" => logbook.current_solution_length,
+        "best_feasible_solution_length" => logbook.best_feasible_solution_length,
+        "parameters" => logbook.parameters
+    )
+
+    # Write the dictionary to a YAML file
+    YAML.write_file(filepath, logbook_dict)
+    println("Logbook saved to $filepath")
+end
+
+# Function to recalculate the total plan length and duration of a PVRPSolution
+function recalculate_plan_length!(solution::PVRPSolution)
+    total_length = 0.0
+    total_duration = 0.0
+    for vrp_solution in values(solution.tourplan)
+        for route in vrp_solution.routes
+            total_length += route.length
+            total_duration += route.duration
+        end
+    end
+    solution.plan_length = total_length
+    solution.plan_duration = total_duration
 end
 
 end # module

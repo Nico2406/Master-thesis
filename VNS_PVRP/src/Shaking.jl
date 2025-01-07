@@ -1,8 +1,8 @@
 module Shaking
 
 using ..PVRPInstance: PVRPInstanceStruct, Node, convert_binary_int
-using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!
-using Random: shuffle!
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution
+using Random: shuffle, shuffle!
 using Plots
 
 export shaking!, move!, change_visit_combinations!

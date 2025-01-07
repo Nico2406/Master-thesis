@@ -1,71 +1,31 @@
 using Revise
 using VNS_PVRP
-using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance, PVRPInstanceStruct
-using VNS_PVRP.Solution: display_solution, plot_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, PVRPSolution, VRPSolution, insert_segment!, remove_segment!
-using VNS_PVRP.VNS
-using Random 
-using Plots
-using FilePathsBase: mkpath, joinpath
-using YAML
+using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance
+using VNS_PVRP.Solution: display_solution, plot_logbook, plot_solution
+using VNS_PVRP.VNS: vns!
+using FilePathsBase: mkpath
 
 function main()
-
-    # Initialize instance
     instance_name = "p02"
     instance = initialize_instance("instances/$instance_name.txt")
-
-    # Plot the instance
     plot = plot_instance(instance)
     display(plot)
 
-    # Create a folder to save the solutions and run information
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
-    instance_folder = joinpath(save_folder, instance_name)
-    mkpath(instance_folder)
+    mkpath(save_folder)
 
-    # Perform VNS test runs
+    println("Running VNS...")
+    best_solution, logbook, seed = vns!(instance, instance_name, save_folder)
 
-    println("Performing VNS test runs on instance: $instance_name.txt")
-    println("========================================")
-    number_of_runs = 10
-    results = VNS.test_vns!(instance, number_of_runs, instance_folder) 
+    println("Plotting Logbook...")
+    logbook_plot = plot_logbook(logbook, instance_name, "test_run", save_folder)
+    display(logbook_plot)
 
-    println("Instance: $instance_name.txt")
-    println("Number of Vehicles: "    , instance.numberofvehicles)
-    println("Vehicle Capacity: "      , instance.vehicleload) 
-    println("Number of Nodes: "       , instance.numberofcustomers)   
-    println("Number of Days: "        , instance.numberofdays)
-    println("Number of Runs: "        , number_of_runs)
-    println("========================================")
-
-    best_solution = nothing
-    best_length = Inf
-    best_seed = nothing
-    best_validity = false
-
-    for (seed, solution, is_solution_valid) in results
-        if solution.plan_length < best_length
-            best_solution = solution
-            best_length = solution.plan_length
-            best_seed = seed
-            best_validity = is_solution_valid
-        end
-    end
-
-    if best_solution !== nothing
-        println("========================================")
-        println("Best Solution:")
-        println("Seed: $best_seed")
-        println("Solution valid: ", best_validity)
-        println("Overall length: ", best_solution.plan_length)
-        println("Overall duration: ", best_solution.plan_duration)
-        plot = plot_solution(best_solution, instance)
-        display(plot)
-        display_solution(best_solution, instance, "Best Solution")
-        println("========================================")
-    else
-        println("No valid solution found.")
-    end
+    println("VNS completed. Best solution length: ", best_solution.plan_length)
+    println("Seed used: ", seed)
+    display_solution(best_solution, instance, "Final Solution")
+    solution_plot = plot_solution(best_solution, instance)
+    display(solution_plot)
 end
 
 main()
