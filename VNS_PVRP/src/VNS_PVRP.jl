@@ -13,8 +13,8 @@ using .PVRPInstance: Node, PVRPInstanceStruct, initialize_instance, plot_instanc
 using .Solution: Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_solution, display_solution
 using .ConstructionHeuristics: nearest_neighbor
 using .LocalSearch: local_search!
-using .Shaking: shaking!
-using .VNS: vns!, test_vns!
+using .Shaking: shaking!, change_visit_combinations!
+using .VNS
 
 using Plots 
 

@@ -1,8 +1,8 @@
 using Revise
 using VNS_PVRP
-using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance
-using VNS_PVRP.Solution: display_solution, plot_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml
-using VNS_PVRP.VNS: test_vns!
+using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance, PVRPInstanceStruct
+using VNS_PVRP.Solution: display_solution, plot_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, PVRPSolution, VRPSolution, insert_segment!, remove_segment!
+using VNS_PVRP.VNS
 using Random 
 using Plots
 using FilePathsBase: mkpath, joinpath
@@ -27,8 +27,8 @@ function main()
 
     println("Performing VNS test runs on instance: $instance_name.txt")
     println("========================================")
-    number_of_runs = 50
-    results = test_vns!(instance, number_of_runs, instance_folder) 
+    number_of_runs = 10
+    results = VNS.test_vns!(instance, number_of_runs, instance_folder) 
 
     println("Instance: $instance_name.txt")
     println("Number of Vehicles: "    , instance.numberofvehicles)

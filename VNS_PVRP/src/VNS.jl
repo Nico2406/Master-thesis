@@ -4,7 +4,7 @@ using ..PVRPInstance: PVRPInstanceStruct
 using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
-using ..Shaking: shaking!
+using ..Shaking: shaking!, change_visit_combinations!
 using Random  # Ensure this line is present
 using Plots
 using FilePathsBase: mkpath, joinpath
@@ -34,6 +34,9 @@ function vns!(instance::PVRPInstanceStruct, seed::Int, save_folder::String)::PVR
             for day in keys(current_solution.tourplan)
                 shaking!(current_solution, instance, day)
             end
+
+            # Apply change visit combinations
+            change_visit_combinations!(current_solution, instance)
 
             # Perform local search on all changed routes
             for day in keys(current_solution.tourplan)
