@@ -31,7 +31,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
         error("Initial solution is invalid.")
     end
 
-    max_iterations = 100
+    max_iterations = 1000
     for iteration in 1:max_iterations
         try
             for day in keys(current_solution.tourplan)
@@ -77,6 +77,17 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
         end
     end
 
+    # Set the initial visit combination to the visits of the best solution
+    for day in keys(best_solution.tourplan)
+        for route in best_solution.tourplan[day].routes
+            for node in route.visited_nodes
+                if node != 0
+                    instance.nodes[node + 1].initialvisitcombination[day] = true
+                end
+            end
+        end
+    end
+
     # Create the necessary directories
     instance_folder = joinpath(save_folder, instance_name)
     seed_folder = joinpath(instance_folder, string(seed))
@@ -96,7 +107,8 @@ function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs
         # Reinitialize instance to ensure a fresh start for each run
         fresh_instance = deepcopy(instance)
         best_solution, logbook, seed = vns!(fresh_instance, instance_name, save_folder)
-        push!(results, (seed, best_solution, logbook, is_current_solution_feasible))
+        is_solution_valid = validate_solution(best_solution, fresh_instance)
+        push!(results, (seed, best_solution, logbook, is_solution_valid))
     end
     return results
 end
