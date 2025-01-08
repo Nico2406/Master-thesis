@@ -5,7 +5,7 @@ using Plots
 using YAML
 using YAML: write_file, load_file
 
-export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!
+export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, calculate_kpis_with_treatment
 
 # Define a mutable struct to represent a route
 mutable struct Route
@@ -407,5 +407,87 @@ function recalculate_plan_length!(solution::PVRPSolution)
     solution.plan_duration = total_duration
 end
 
+function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPInstanceStruct;
+    region=:urban,
+    bring_participation=0.8,
+    ev_share=0.3,
+    average_idle_time_per_stop=0.1)  # Durchschnittliche Leerlaufzeit pro Stopp in Stunden
+    
+    # Standardwerte basierend auf Region
+    defaults = Dict(
+        :urban => Dict("speed" => 40.0, "load" => 5.0, "energy_per_km" => 9.0, "stop_energy" => 2.3, "idle_energy" => 36.0),
+        :suburban => Dict("speed" => 40.0, "load" => 5.0, "energy_per_km" => 9.0, "stop_energy" => 2.3, "idle_energy" => 36.0),
+        :rural => Dict("speed" => 60.0, "load" => 5.0, "energy_per_km" => 9.0, "stop_energy" => 2.3, "idle_energy" => 36.0)
+    )
+    params = defaults[region]
+
+    # Distanz zur Behandlungsanlage
+    treatment_distance = Dict(:urban => 10.0, :suburban => 20.0, :rural => 30.0)[region]
+
+    # Initialisiere Variablen
+    total_energy = 0.0
+    total_stops = 0
+    total_idle_time = 0.0
+    total_distance = 0.0
+
+    # Energieverbrauch nach Phasen
+    transport_energy = 0.0  # Ehaul
+    collection_energy = 0.0  # Edrivecollect
+    stop_energy = 0.0  # Estopcollect
+    idle_energy = 0.0  # Idle Phase
+
+    for (day, vrp_solution) in solution.tourplan
+        for route in vrp_solution.routes
+            # Sammlungsphase: Strecke innerhalb des Sammelgebiets
+            collection_distance = route.length
+            total_distance += collection_distance
+            collection_energy += collection_distance * params["energy_per_km"]
+
+            # Stopps und Energieverbrauch
+            stops = length(route.visited_nodes) - 2  # Depot nicht mitzählen
+            total_stops += stops
+            stop_energy += stops * params["stop_energy"]
+
+            # Leerlaufphase
+            idle_time = stops * average_idle_time_per_stop * (1.0 - bring_participation)
+            total_idle_time += idle_time
+            idle_energy += idle_time * params["idle_energy"]
+
+            # Transportphase: Rückfahrt zur Behandlungsanlage
+            transport_energy += treatment_distance * params["energy_per_km"]
+        end
+    end
+
+    # Gesamte Energie
+    total_energy = transport_energy + collection_energy + stop_energy + idle_energy
+
+    # Energieverbrauch basierend auf Fahrzeugtypen
+    ev_energy = total_energy * ev_share
+    diesel_energy = total_energy * (1 - ev_share)
+
+    # Umrechnung in spezifische Einheiten
+    diesel_liters = diesel_energy / 36.0  # 1 Liter Diesel = 36 MJ
+    ev_mwh = ev_energy / 3600.0  # 1 MWh = 3600 MJ
+
+    # Emissionen (CO2 in kg)
+    diesel_emissions = diesel_liters * 2.64  # kg CO2 pro Liter Diesel
+    ev_emissions = ev_mwh * 0.0  # Annahme: 0 Emissionen für Elektrofahrzeuge
+    total_emissions = diesel_emissions + ev_emissions
+
+    # Output als Dictionary
+    return Dict(
+        "Total Energy (MJ)" => total_energy,
+        "EV Consumption (MWh)" => ev_mwh,
+        "Diesel Consumption (Liters)" => diesel_liters,
+        "Total Emissions (kg CO2)" => total_emissions,
+        "Total Distance (km)" => total_distance,
+        "Total Stops" => total_stops,
+        "Total Idle Time (h)" => total_idle_time,
+        "Transport Phase (Ehaul)" => Dict("Energy (MJ)" => transport_energy, "Distance (km)" => treatment_distance * length(solution.tourplan)),
+        "Collection Phase (Edrivecollect)" => Dict("Energy (MJ)" => collection_energy, "Distance (km)" => total_distance),
+        "Stop Phase (Estopcollect)" => Dict("Energy (MJ)" => stop_energy, "Stops" => total_stops),
+        "Idle Phase" => Dict("Energy (MJ)" => idle_energy, "Idle Time (h)" => total_idle_time)
+    )
+end
 end # module
 

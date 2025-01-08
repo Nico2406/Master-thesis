@@ -38,7 +38,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
             error("Initial solution is invalid.")
         end
 
-        max_iterations = 100000
+        max_iterations = 1000
         for iteration in 1:max_iterations
             try
                 for day in keys(current_solution.tourplan)
