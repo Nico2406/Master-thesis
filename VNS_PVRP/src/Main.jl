@@ -6,7 +6,7 @@ using VNS_PVRP.VNS: vns!, test_vns!
 using FilePathsBase: mkpath
 
 function main()
-    instance_name = "p02"
+    instance_name = "p05"
     instance = initialize_instance("instances/$instance_name.txt")
     plot = plot_instance(instance)
     display(plot)
@@ -14,13 +14,12 @@ function main()
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
     mkpath(save_folder)
 
-    num_runs = 10
+    num_runs = 1
     println("Running VNS for $num_runs runs...")
-    results = test_vns!(instance, instance_name, num_runs, save_folder)
+    best_solution, logbook, seed = vns!(instance, instance_name, save_folder, num_runs=num_runs)
 
-    println("Plotting Logbook for the last run...")
-    best_solution, logbook, seed, is_solution_valid = results[end][2], results[end][3], results[end][1], results[end][4]
-    logbook_plot = plot_logbook(logbook, instance_name, "test_run", save_folder)
+    println("Plotting Logbook for the best run...")
+    logbook_plot = plot_logbook(logbook, instance_name, "best_run", save_folder)
     display(logbook_plot)
 
     println("VNS completed.")
@@ -28,7 +27,7 @@ function main()
     println("Instance Name: ", instance_name)
     println("Number of Vehicles: ", instance.numberofvehicles)
     println("Number of Days: ", instance.numberofdays)
-    println("Number of Nodes: ", instance.numberofcustomers + 1)  # Including depot
+    println("Number of Nodes: ", instance.numberofcustomers)
     println("Vehicle Capacity: ", instance.vehicleload)
     println("Maximum Route Duration: ", instance.maximumrouteduration)
     println("Best Solution Length: ", best_solution.plan_length)
@@ -42,6 +41,7 @@ function main()
     display(solution_plot)
 
     # Validate the final solution
+    is_solution_valid = validate_solution(best_solution, instance)
     println("Final solution validation: ", is_solution_valid ? "Valid" : "Invalid")
 end
 

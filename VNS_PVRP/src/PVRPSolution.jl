@@ -112,8 +112,8 @@ function recalculate_route!(route::Route, instance::PVRPInstanceStruct)
     # Ensure the route length is correctly updated
     route.length += instance.distance_matrix[route.visited_nodes[end] + 1, 1]
     
-    # Mark the route as not feasible if the load exceeds the vehicle capacity
-    route.feasible = route.load <= instance.vehicleload
+    # Mark the route as not feasible if the load exceeds the vehicle capacity or the length exceeds the maximum route duration
+    route.feasible = route.load <= instance.vehicleload && route.length <= instance.maximumrouteduration
 end
 
 # Function to remove a segment from a route and recalculate its properties
