@@ -93,15 +93,37 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
         # Insert node into new days
         for (day, vrp_solution) in solution.tourplan
             if new_combination[day] && !current_combination[day]
+                best_delta = Inf
+                best_route = nothing
+                best_position = -1
+
                 for route in vrp_solution.routes
-                    if length(route.visited_nodes) > 1
-                        insert_idx = rand(2:length(route.visited_nodes))
-                        delta = insert_segment!(route, insert_idx, [node], instance)
-                        total_delta += delta
-                        route.changed = true  # Mark the route as changed
-                        # println("Node $node inserted into Day $day at position $insert_idx. Delta: $delta")
-                        break
+                    if route.load + instance.nodes[node + 1].demand <= instance.vehicleload
+                        for insert_idx in 2:length(route.visited_nodes)
+                            temp_route = deepcopy(route)
+                            delta = insert_segment!(temp_route, insert_idx, [node], instance)
+                            if delta < best_delta
+                                best_delta = delta
+                                best_route = route
+                                best_position = insert_idx
+                            end
+                        end
                     end
+                end
+
+                if best_route !== nothing
+                    delta = insert_segment!(best_route, best_position, [node], instance)
+                    total_delta += delta
+                    best_route.changed = true  # Mark the route as changed
+                    # println("Node $node inserted into Day $day at position $best_position. Delta: $delta")
+                else
+                    # Create a new route if no existing route can accommodate the node
+                    new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, true, false)
+                    recalculate_route!(new_route, instance)
+                    push!(vrp_solution.routes, new_route)
+                    total_delta += new_route.length
+                    new_route.changed = true  # Mark the new route as changed
+                    # println("Node $node inserted into a new route for Day $day. Delta: $(new_route.length)")
                 end
             end
         end
@@ -145,24 +167,8 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int
         route1.changed = true
         route2.changed = true
 
-        # Ensure no duplicate routes
-        # unique_routes = Set{Vector{Int}}()
-        # for route in solution.tourplan[day].routes
-        #     if route.visited_nodes in unique_routes
-        #         println("Warning: Duplicate route detected during shaking on day $day.")
-        #     else
-        #         push!(unique_routes, deepcopy(route.visited_nodes))
-        #     end
-        # end
-
         # Update routes and remove empty ones
         solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
-
-        # Check node count
-        # new_node_count = sum(length(route.visited_nodes) for route in solution.tourplan[day].routes)
-        # if original_node_count != new_node_count
-        #     println("Warning: Node count mismatch detected after shaking on day $day. This might be caused by filtering.")
-        # end
 
         return delta
     catch e

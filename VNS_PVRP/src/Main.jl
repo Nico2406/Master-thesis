@@ -12,7 +12,7 @@ function main()
     ev_share = 0.3  # Anteil Elektrofahrzeuge
     average_idle_time_per_stop = 0.1  # Durchschnittliche Leerlaufzeit pro Stopp in Stunden
 
-    instance_name = "p04"
+    instance_name = "p05"
     instance = initialize_instance("instances/$instance_name.txt")
     plot = plot_instance(instance)
     display(plot)
