@@ -1,4 +1,4 @@
 *.yaml
 solution.yaml
 runs/*.yaml
-
+*.png

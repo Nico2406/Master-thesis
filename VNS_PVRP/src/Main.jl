@@ -33,7 +33,6 @@ function main()
     best_result = results[best_result_index]
     best_solution, logbook, seed, is_solution_valid = best_result[2], best_result[3], best_result[1], best_result[4]
 
-    println("Plotting Logbook for the best run...")
     logbook_plot = plot_logbook(logbook, instance_name, seed, save_folder)
     display(logbook_plot)
 
