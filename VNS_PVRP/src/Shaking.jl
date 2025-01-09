@@ -98,7 +98,7 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
                 best_position = -1
 
                 for route in vrp_solution.routes
-                    if route.load + instance.nodes[node + 1].demand <= instance.vehicleload
+                    if route.load + instance.nodes[node + 1].demand <= instance.vehicleload && route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] <= instance.maximumrouteduration
                         for insert_idx in 2:length(route.visited_nodes)
                             temp_route = deepcopy(route)
                             delta = insert_segment!(temp_route, insert_idx, [node], instance)

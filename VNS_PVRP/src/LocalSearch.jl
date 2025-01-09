@@ -10,9 +10,7 @@ export local_search!, two_opt_first_improvement!, two_opt_first_improvement_1ite
 function local_search!(sol::VRPSolution, inst::PVRPInstanceStruct, method::String, max_iterations::Int)::Number
     Δ = 0
     for route in sol.routes
-        if route.changed
-            Δ += local_search!(route, inst, method, max_iterations)
-        end
+        Δ += local_search!(route, inst, method, max_iterations)
     end
     sol.total_length += Δ
     sol.total_duration += Δ

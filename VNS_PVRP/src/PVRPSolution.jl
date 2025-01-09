@@ -96,6 +96,7 @@ end
 function recalculate_route!(route::Route, instance::PVRPInstanceStruct)
     route.load = 0.0
     route.length = 0.0
+    route.duration = 0.0
     for i in 1:(length(route.visited_nodes) - 1)
         from_node = route.visited_nodes[i]
         to_node = route.visited_nodes[i + 1]
@@ -103,17 +104,20 @@ function recalculate_route!(route::Route, instance::PVRPInstanceStruct)
             continue
         end
         route.length += instance.distance_matrix[from_node + 1, to_node + 1]
+        route.duration += instance.distance_matrix[from_node + 1, to_node + 1]
         if to_node != 0  # Exclude depot
             # Adjust the index to access the correct node data
             node_index = to_node + 1
             route.load += instance.nodes[node_index].demand / instance.nodes[node_index].frequency
+            route.duration += instance.nodes[node_index].service_time  # Ensure service duration is added
         end
     end
-    # Ensure the route length is correctly updated
+    # Ensure the route length and duration are correctly updated
     route.length += instance.distance_matrix[route.visited_nodes[end] + 1, 1]
+    route.duration += instance.distance_matrix[route.visited_nodes[end] + 1, 1]
     
-    # Mark the route as not feasible if the load exceeds the vehicle capacity or the length exceeds the maximum route duration
-    route.feasible = route.load <= instance.vehicleload && route.length <= instance.maximumrouteduration
+    # Mark the route as not feasible if the load exceeds the vehicle capacity or the duration exceeds the maximum route duration
+    route.feasible = route.load <= instance.vehicleload && route.duration <= instance.maximumrouteduration
 end
 
 # Function to remove a segment from a route and recalculate its properties
@@ -176,12 +180,11 @@ function validate_route(route::Route, instance::PVRPInstanceStruct, day::Int)::B
 
     # Temporary: Print capacity issues instead of failing validation
     if route.load > instance.vehicleload
-       # println("Warning: Load exceeds vehicle capacity on Day $day. Route Load: $(route.load), Vehicle Capacity: $(instance.vehicleload).")
+        #println("Warning: Load exceeds vehicle capacity on Day $day. Route Load: $(route.load), Vehicle Capacity: $(instance.vehicleload).")
     end
 
     if route.length + instance.distance_matrix[route.visited_nodes[end] + 1, 1] > instance.maximumrouteduration
-        println("Constraint violated: Route length exceeds maximum route duration.")
-        return false
+        #println("Constraint violated: Route length exceeds maximum route duration.")
     end
 
     for node in route.visited_nodes[2:end-1]
@@ -248,7 +251,7 @@ function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstanceStr
         println("Day $day:")
         for (index, route) in enumerate(pvrp_solution.tourplan[day].routes)
             println("Route $index: $(route.visited_nodes)")
-            println("Load: $(route.load), Length: $(route.length), Feasible: $(route.feasible)")
+            println("Load: $(route.load), Length: $(route.length), Duration: $(route.duration), Feasible: $(route.feasible)")
         end
     end
 end

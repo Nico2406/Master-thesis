@@ -29,6 +29,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
         for day in keys(best_solution.tourplan)
             for route in best_solution.tourplan[day].routes
                 recalculate_route!(route, instance)
+                local_search!(route, instance, "2opt-first", 1000)  # Apply local search after initialization
             end
         end
 
@@ -38,7 +39,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
             error("Initial solution is invalid.")
         end
 
-        max_iterations = 10000
+        max_iterations = 1000
         for iteration in 1:max_iterations
             try
                 for day in keys(current_solution.tourplan)
