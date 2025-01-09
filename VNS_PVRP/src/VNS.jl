@@ -39,7 +39,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
             error("Initial solution is invalid.")
         end
 
-        max_iterations = 1000
+        max_iterations = 10000
         for iteration in 1:max_iterations
             try
                 for day in keys(current_solution.tourplan)
@@ -85,7 +85,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
                     feasible=is_current_solution_feasible
                 )
             catch e
-                println("Error during iteration $iteration: $e")
+                #println("Error during iteration $iteration: $e")
                 continue
             end
         end
