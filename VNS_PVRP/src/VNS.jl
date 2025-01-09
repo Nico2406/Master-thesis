@@ -1,7 +1,7 @@
 module VNS
 
 using ..PVRPInstance: PVRPInstanceStruct
-using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, recalculate_plan_length!
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, recalculate_plan_length!, run_parameter_study
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
 using ..Shaking: shaking!, change_visit_combinations!
@@ -82,11 +82,11 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
                     current_solution.plan_length,
                     best_solution.plan_length,
                     best_feasible_solution.plan_length,
-                    Dict("destroy_param" => 0.5),
                     feasible=is_current_solution_feasible
                 )
             catch e
                 println("Error during iteration $iteration: $e")
+                continue
             end
         end
 
@@ -119,6 +119,9 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
     save_solution_to_yaml(best_overall_solution, joinpath(seed_folder, "solution.yaml"))
     save_logbook_to_yaml(best_overall_logbook, joinpath(seed_folder, "logbook.yaml"))
     save_run_info_to_yaml(best_overall_seed, 0.0, best_overall_solution.plan_length, validate_solution(best_overall_solution, instance), joinpath(seed_folder, "run_info.yaml"))
+
+    # Run parameter study and save results
+    run_parameter_study(instance, best_overall_solution, seed_folder)
 
     return best_overall_solution, best_overall_logbook, best_overall_seed
 end

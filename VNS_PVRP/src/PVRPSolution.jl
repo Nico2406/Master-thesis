@@ -5,7 +5,7 @@ using Plots
 using YAML
 using YAML: write_file, load_file
 
-export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, calculate_kpis_with_treatment
+export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, calculate_kpis_with_treatment, display_kpis, run_parameter_study
 
 # Define a mutable struct to represent a route
 mutable struct Route
@@ -330,21 +330,13 @@ function update_logbook!(
     iteration::Int,
     current_length::Float64,
     best_length::Float64,
-    best_feasible_length::Float64,
-    params::Dict{String, Float64} = Dict();
+    best_feasible_length::Float64;
     feasible::Bool = true
 )
     push!(logbook.iteration, iteration)
     push!(logbook.current_solution_length, current_length)
     push!(logbook.best_solution_length, best_length)
     push!(logbook.best_feasible_solution_length, best_feasible_length)
-
-    for (key, value) in params
-        if !haskey(logbook.parameters, key)
-            logbook.parameters[key] = []
-        end
-        push!(logbook.parameters[key], value)
-    end
 end
 
 # Plot the logbook data
@@ -492,6 +484,90 @@ function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPIns
         "Stop Phase (Estopcollect)" => Dict("Energy (MJ)" => stop_energy, "Stops" => total_stops, "Emissions (kg CO2)" => stop_emissions),
         "Idle Phase" => Dict("Energy (MJ)" => idle_energy, "Idle Time (h)" => total_idle_time, "Emissions (kg CO2)" => idle_emissions)
     )
+end
+
+function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64)
+    # Calculate KPIs
+    println("\nCalculating KPIs with the following parameters:")
+    println("Region: ", region)
+    println("Bring Participation: ", bring_participation)
+    println("EV Share: ", ev_share)
+    println("Average Idle Time per Stop (h): ", average_idle_time_per_stop)
+    println("====================================")
+    kpis = calculate_kpis_with_treatment(
+        best_solution, instance, region,
+        bring_participation,
+        ev_share,
+        average_idle_time_per_stop
+    )
+    println("\nKPIs Summary:")
+    for (key, value) in kpis
+        println(key, ": ", value)
+    end
+
+    # Print the portion of the total energy caused by each phase
+    total_energy = kpis["Total Energy (MJ)"]
+    transport_energy = kpis["Transport Phase (Ehaul)"]["Energy (MJ)"]
+    collection_energy = kpis["Collection Phase (Edrivecollect)"]["Energy (MJ)"]
+    stop_energy = kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"]
+    idle_energy = kpis["Idle Phase"]["Energy (MJ)"]
+
+    println("\nEnergy Portion by Phase:")
+    println("  Transport Phase: ", round(transport_energy / total_energy * 100, digits=2), "%")
+    println("  Collection Phase: ", round(collection_energy / total_energy * 100, digits=2), "%")
+    println("  Stop Phase: ", round(stop_energy / total_energy * 100, digits=2), "%")
+    println("  Idle Phase: ", round(idle_energy / total_energy * 100, digits=2), "%")
+
+    # Print the CO2 emissions for each phase
+    transport_emissions = kpis["Transport Phase (Ehaul)"]["Emissions (kg CO2)"]
+    collection_emissions = kpis["Collection Phase (Edrivecollect)"]["Emissions (kg CO2)"]
+    stop_emissions = kpis["Stop Phase (Estopcollect)"]["Emissions (kg CO2)"]
+    idle_emissions = kpis["Idle Phase"]["Emissions (kg CO2)"]
+
+    println("\nCO2 Emissions by Phase (kg):")
+    println("  Transport Phase: ", transport_emissions)
+    println("  Collection Phase: ", collection_emissions)
+    println("  Stop Phase: ", stop_emissions)
+    println("  Idle Phase: ", idle_emissions)
+end
+
+function run_parameter_study(instance::PVRPInstanceStruct, best_solution::PVRPSolution, save_path::String)
+    results = []
+
+    bring_participations = [0.5, 0.7, 0.8, 0.9]
+    ev_shares = [0.2, 0.4, 0.6, 0.8]
+    regions = [:urban, :suburban, :rural]
+
+    for region in regions
+        for bring_participation in bring_participations
+            for ev_share in ev_shares
+                # Calculate KPIs
+                kpis = calculate_kpis_with_treatment(
+                    best_solution, instance,
+                    region,
+                    bring_participation,
+                    ev_share,
+                    0.1  # Assuming a fixed average idle time per stop
+                )
+                # Save results
+                push!(results, Dict(
+                    "Region" => region,
+                    "Bring Participation" => bring_participation,
+                    "EV Share" => ev_share,
+                    "Total Energy (MJ)" => kpis["Total Energy (MJ)"],
+                    "Total Emissions (kg CO2)" => kpis["Total Emissions (kg CO2)"],
+                    "Transport Phase Energy (MJ)" => kpis["Transport Phase (Ehaul)"]["Energy (MJ)"],
+                    "Collection Phase Energy (MJ)" => kpis["Collection Phase (Edrivecollect)"]["Energy (MJ)"],
+                    "Stop Phase Energy (MJ)" => kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"],
+                    "Idle Phase Energy (MJ)" => kpis["Idle Phase"]["Energy (MJ)"]
+                ))
+            end
+        end
+    end
+
+    # Save results as YAML
+    YAML.write_file(joinpath(save_path, "parameter_study_results.yaml"), results)
+    println("Parameter study results saved to $save_path/parameter_study_results.yaml")
 end
 
 end # module

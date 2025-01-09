@@ -133,7 +133,7 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
     return total_delta
 end
 
-function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)
+function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::Float64
     if isempty(solution.tourplan[day].routes)
         return 0.0
     end
@@ -158,7 +158,6 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int
     start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
 
     try
-        original_node_count = sum(length(route.visited_nodes) for route in solution.tourplan[day].routes)
         delta = move!(route1, route2, start_idx, segment_length, instance, day)
         if delta == Inf
             return 0.0
