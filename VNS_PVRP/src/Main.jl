@@ -12,7 +12,7 @@ function main()
     ev_share = 0.3  # Anteil Elektrofahrzeuge
     average_idle_time_per_stop = 0.1  # Durchschnittliche Leerlaufzeit pro Stopp in Stunden
 
-    instance_name = "p05"
+    instance_name = "p04"
     instance = initialize_instance("instances/$instance_name.txt")
     plot = plot_instance(instance)
     display(plot)
@@ -20,7 +20,7 @@ function main()
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
     mkpath(save_folder)
 
-    num_runs = 1
+    num_runs = 5
     println("Running VNS for $num_runs runs...")
     results = test_vns!(instance, instance_name, num_runs, save_folder)
 
@@ -51,6 +51,7 @@ function main()
 
     # Validate the final solution
     println("Final solution validation: ", is_solution_valid ? "Valid" : "Invalid")
+    println("====================================")
 
     # Berechnung der KPIs
     println("\nCalculating KPIs with the following parameters:")
@@ -58,11 +59,12 @@ function main()
     println("Bring Participation: ", bring_participation)
     println("EV Share: ", ev_share)
     println("Average Idle Time per Stop (h): ", average_idle_time_per_stop)
+    println("====================================")
     kpis = calculate_kpis_with_treatment(
-        best_solution, instance, region=region,
-        bring_participation=bring_participation,
-        ev_share=ev_share,
-        average_idle_time_per_stop=average_idle_time_per_stop
+        best_solution, instance, region,
+        bring_participation,
+        ev_share,
+        average_idle_time_per_stop
     )
     println("\nKPIs Summary:")
     for (key, value) in kpis
@@ -77,10 +79,22 @@ function main()
     idle_energy = kpis["Idle Phase"]["Energy (MJ)"]
 
     println("\nEnergy Portion by Phase:")
-    println("Transport Phase: ", transport_energy / total_energy * 100, "%")
-    println("Collection Phase: ", collection_energy / total_energy * 100, "%")
-    println("Stop Phase: ", stop_energy / total_energy * 100, "%")
-    println("Idle Phase: ", idle_energy / total_energy * 100, "%")
+    println("  Transport Phase: ", round(transport_energy / total_energy * 100, digits=2), "%")
+    println("  Collection Phase: ", round(collection_energy / total_energy * 100, digits=2), "%")
+    println("  Stop Phase: ", round(stop_energy / total_energy * 100, digits=2), "%")
+    println("  Idle Phase: ", round(idle_energy / total_energy * 100, digits=2), "%")
+
+    # Print the CO2 emissions for each phase
+    transport_emissions = kpis["Transport Phase (Ehaul)"]["Emissions (kg CO2)"]
+    collection_emissions = kpis["Collection Phase (Edrivecollect)"]["Emissions (kg CO2)"]
+    stop_emissions = kpis["Stop Phase (Estopcollect)"]["Emissions (kg CO2)"]
+    idle_emissions = kpis["Idle Phase"]["Emissions (kg CO2)"]
+
+    println("\nCO2 Emissions by Phase (kg):")
+    println("  Transport Phase: ", transport_emissions)
+    println("  Collection Phase: ", collection_emissions)
+    println("  Stop Phase: ", stop_emissions)
+    println("  Idle Phase: ", idle_emissions)
 
     # Plot and display the best solution
     solution_plot = plot_solution(best_solution, instance)
