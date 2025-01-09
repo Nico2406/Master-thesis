@@ -2,7 +2,7 @@ module Shaking
 
 using ..PVRPInstance: PVRPInstanceStruct, Node, convert_binary_int
 using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution
-using Random: shuffle, shuffle!
+using Random: shuffle, shuffle!, rand
 using Plots
 
 export shaking!, move!, change_visit_combinations!
@@ -138,41 +138,47 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int
         return 0.0
     end
 
-    route_ids = collect(1:length(solution.tourplan[day].routes))
-    if length(route_ids) < 2
-        return 0.0
-    end
-    shuffle!(route_ids)
+    if rand(Bool)
+        # Perform move operation
+        route_ids = collect(1:length(solution.tourplan[day].routes))
+        if length(route_ids) < 2
+            return 0.0
+        end
+        shuffle!(route_ids)
 
-    route1 = solution.tourplan[day].routes[route_ids[1]]
-    route2 = solution.tourplan[day].routes[route_ids[2]]
+        route1 = solution.tourplan[day].routes[route_ids[1]]
+        route2 = solution.tourplan[day].routes[route_ids[2]]
 
-    if length(route1.visited_nodes) <= 2
-        return 0.0
-    end
-
-    segment_length = rand(1:3)
-    if length(route1.visited_nodes) - segment_length < 2
-        return 0.0
-    end
-    start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
-
-    try
-        delta = move!(route1, route2, start_idx, segment_length, instance, day)
-        if delta == Inf
+        if length(route1.visited_nodes) <= 2
             return 0.0
         end
 
-        route1.changed = true
-        route2.changed = true
+        segment_length = rand(1:3)
+        if length(route1.visited_nodes) - segment_length < 2
+            return 0.0
+        end
+        start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
 
-        # Update routes and remove empty ones
-        solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
+        try
+            delta = move!(route1, route2, start_idx, segment_length, instance, day)
+            if delta == Inf
+                return 0.0
+            end
 
-        return delta
-    catch e
-        println("Error during shaking on day $day: $e")
-        return 0.0
+            route1.changed = true
+            route2.changed = true
+
+            # Update routes and remove empty ones
+            solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
+
+            return delta
+        catch e
+            println("Error during shaking on day $day: $e")
+            return 0.0
+        end
+    else
+        # Perform change visit combinations operation
+        return change_visit_combinations!(solution, instance)
     end
 end
 
