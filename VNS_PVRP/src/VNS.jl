@@ -1,12 +1,14 @@
 module VNS
 
 using ..PVRPInstance: PVRPInstanceStruct
-using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, recalculate_plan_length!, run_parameter_study
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, run_parameter_study
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
 using ..Shaking: shaking!, change_visit_combinations!
 using Random
 using FilePathsBase: mkpath, joinpath
+using Dates: now
+using Plots: savefig  # Import savefig from Plots
 
 export vns!, test_vns!
 
@@ -39,7 +41,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
             error("Initial solution is invalid.")
         end
 
-        max_iterations = 10000
+        max_iterations = 1000
         for iteration in 1:max_iterations
             try
                 for day in keys(current_solution.tourplan)
@@ -119,6 +121,15 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
     save_solution_to_yaml(best_overall_solution, joinpath(seed_folder, "solution.yaml"))
     save_logbook_to_yaml(best_overall_logbook, joinpath(seed_folder, "logbook.yaml"))
     save_run_info_to_yaml(best_overall_seed, 0.0, best_overall_solution.plan_length, validate_solution(best_overall_solution, instance), joinpath(seed_folder, "run_info.yaml"))
+
+    # Save the solution evolution plot
+    plot_logbook(best_overall_logbook, instance_name, best_overall_seed, save_folder)
+    #println("Solution evolution plot saved to $(joinpath(seed_folder, "solution_evolution_plot.png"))")
+
+    # Save the solution plot
+    solution_plot = plot_solution(best_overall_solution, instance)
+    savefig(solution_plot, joinpath(seed_folder, "solution_plot.png"))
+    #println("Solution plot saved to $(joinpath(seed_folder, "solution_plot.png"))")
 
     # Run parameter study and save results
     run_parameter_study(instance, best_overall_solution, seed_folder)

@@ -277,7 +277,7 @@ function save_solution_to_yaml(solution::PVRPSolution, filepath::String)
 
     # Write the dictionary to a YAML file
     YAML.write_file(filepath, solution_dict)
-    println("Solution saved to $filepath")
+    #println("Solution saved to $filepath")
 end
 
 # Function to load the solution from a YAML file
@@ -307,7 +307,7 @@ function save_run_info_to_yaml(seed::Int, runtime::Float64, cost::Float64, feasi
         "feasible" => feasible,
     )
     YAML.write_file(filepath, run_info)
-    println("Run information saved to $filepath")
+   #println("Run information saved to $filepath")
 end
 
 # Define a structure for the logbook
@@ -340,7 +340,7 @@ function update_logbook!(
 end
 
 # Plot the logbook data
-function plot_logbook(logbook::VNSLogbook, instance_name::String, additional_info::String, output_dir::String)::Plots.Plot
+function plot_logbook(logbook::VNSLogbook, instance_name::String, seed::Int, output_dir::String)::Plots.Plot
     # Plot best, best feasible, and current solution lengths
     sols_p = plot(
         logbook.iteration,
@@ -351,7 +351,7 @@ function plot_logbook(logbook::VNSLogbook, instance_name::String, additional_inf
         title = "Solution Evolution",
         size = (1200, 800)
     )
-    savefig(sols_p, joinpath(output_dir, "$(instance_name)_solution_evolution_$(additional_info).png"))
+    savefig(sols_p, joinpath(output_dir, instance_name, string(seed), "solution_evolution_plot.png"))
 
     # Plot parameters
     if !isempty(logbook.parameters)
@@ -365,7 +365,7 @@ function plot_logbook(logbook::VNSLogbook, instance_name::String, additional_inf
                 title = "$(param_name) Evolution",
                 size = (1200, 800)
             )
-            savefig(params_p, joinpath(output_dir, "$(instance_name)_$(param_name)_evolution_$(additional_info).png"))
+            savefig(params_p, joinpath(output_dir, instance_name, string(seed), "$(param_name)_evolution_plot.png"))
         end
     end
 
@@ -385,7 +385,7 @@ function save_logbook_to_yaml(logbook::VNSLogbook, filepath::String)
 
     # Write the dictionary to a YAML file
     YAML.write_file(filepath, logbook_dict)
-    println("Logbook saved to $filepath")
+    #println("Logbook saved to $filepath")
 end
 
 # Function to recalculate the total plan length and duration of a PVRPSolution
@@ -567,7 +567,7 @@ function run_parameter_study(instance::PVRPInstanceStruct, best_solution::PVRPSo
 
     # Save results as YAML
     YAML.write_file(joinpath(save_path, "parameter_study_results.yaml"), results)
-    println("Parameter study results saved to $save_path/parameter_study_results.yaml")
+    #println("Parameter study results saved to $save_path/parameter_study_results.yaml")
 end
 
 end # module

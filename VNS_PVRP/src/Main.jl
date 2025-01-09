@@ -4,6 +4,7 @@ using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance
 using VNS_PVRP.Solution: display_solution, plot_logbook, plot_solution, validate_solution, calculate_kpis_with_treatment, display_kpis
 using VNS_PVRP.VNS: test_vns!
 using FilePathsBase: mkpath
+using Dates: now
 
 function main()
     # Parameter für KPI-Berechnung
@@ -22,7 +23,10 @@ function main()
 
     num_runs = 5
     println("Running VNS for $num_runs runs...")
+    start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder)
+    end_time = now()
+    elapsed_time = end_time - start_time
 
     # Find the best solution from the results
     best_result_index = argmin([result[2].plan_length for result in results])
@@ -30,7 +34,7 @@ function main()
     best_solution, logbook, seed, is_solution_valid = best_result[2], best_result[3], best_result[1], best_result[4]
 
     println("Plotting Logbook for the best run...")
-    logbook_plot = plot_logbook(logbook, instance_name, "best_run", save_folder)
+    logbook_plot = plot_logbook(logbook, instance_name, seed, save_folder)
     display(logbook_plot)
 
     println("VNS completed.")
@@ -45,6 +49,7 @@ function main()
     println("Total Plan Duration: ", best_solution.plan_duration)
     println("Seed used: ", seed)
     println("Number of Runs: ", num_runs)
+    println("Elapsed Time: ", elapsed_time)
     println("====================================")
 
     display_solution(best_solution, instance, "Final Solution")
