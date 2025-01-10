@@ -12,7 +12,7 @@ using Plots: savefig  # Import savefig from Plots
 
 export vns!, test_vns!
 
-function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::String; seed::Int=rand(1:10000), num_runs::Int=1)::Tuple{PVRPSolution, VNSLogbook, Int}
+function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::String; seed::Int=rand(1:10000), num_runs::Int=1, num_iterations::Int=1000)::Tuple{PVRPSolution, VNSLogbook, Int}
     Random.seed!(seed)
 
     best_overall_solution = nothing
@@ -41,8 +41,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
             error("Initial solution is invalid.")
         end
 
-        max_iterations = 1000
-        for iteration in 1:max_iterations
+        for iteration in 1:num_iterations
             try
                 for day in keys(current_solution.tourplan)
                     shaking!(current_solution, instance, day)
@@ -137,12 +136,12 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
     return best_overall_solution, best_overall_logbook, best_overall_seed
 end
 
-function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String)
+function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int)
     results = []
     for i in 1:num_runs
         # Reinitialize instance to ensure a fresh start for each run
         fresh_instance = deepcopy(instance)
-        best_solution, logbook, seed = vns!(fresh_instance, instance_name, save_folder, seed=rand(1:10000), num_runs=1)
+        best_solution, logbook, seed = vns!(fresh_instance, instance_name, save_folder, seed=rand(1:10000), num_runs=1, num_iterations=num_iterations)
         is_solution_valid = validate_solution(best_solution, fresh_instance)
         push!(results, (seed, best_solution, logbook, is_solution_valid))
     end

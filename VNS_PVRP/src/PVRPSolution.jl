@@ -402,17 +402,19 @@ function recalculate_plan_length!(solution::PVRPSolution)
     solution.plan_duration = total_duration
 end
 
-function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64)::Dict{String, Any}
+function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64, compacting_energy::Float64, stops_per_compacting::Int, average_speed::Float64, treatment_distance::Float64, average_load::Float64, stop_energy::Float64, energy_per_km::Float64, idle_energy::Float64)::Dict{String, Any}
     # Default values based on region
     defaults = Dict(
-        :urban => Dict("speed" => 40.0, "load" => 5.0, "energy_per_km" => 9.0, "stop_energy" => 2.3, "idle_energy" => 36.0),
-        :suburban => Dict("speed" => 40.0, "load" => 5.0, "energy_per_km" => 9.0, "stop_energy" => 2.3, "idle_energy" => 36.0),
-        :rural => Dict("speed" => 60.0, "load" => 5.0, "energy_per_km" => 9.0, "stop_energy" => 2.3, "idle_energy" => 36.0)
+        :urban => Dict(),
+        :suburban => Dict(),
+        :rural => Dict()
     )
     params = defaults[region]
-
-    # Distance to treatment facility
-    treatment_distance = Dict(:urban => 10.0, :suburban => 20.0, :rural => 30.0)[region]
+    params["speed"] = average_speed
+    params["load"] = average_load
+    params["stop_energy"] = stop_energy
+    params["energy_per_km"] = energy_per_km
+    params["idle_energy"] = idle_energy
 
     # Initialize variables
     total_energy = 0.0
@@ -423,8 +425,8 @@ function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPIns
     # Energy consumption by phases
     transport_energy = 0.0  # Ehaul
     collection_energy = 0.0  # Edrivecollect
-    stop_energy = 0.0  # Estopcollect
-    idle_energy = 0.0  # Idle Phase
+    stop_energy_total = 0.0  # Estopcollect
+    idle_energy_total = 0.0  # Idle Phase
 
     for (day, vrp_solution) in solution.tourplan
         for route in vrp_solution.routes
@@ -436,12 +438,15 @@ function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPIns
             # Stops and energy consumption
             stops = length(route.visited_nodes) - 2  # Exclude depot
             total_stops += stops
-            stop_energy += stops * params["stop_energy"]
+            stop_energy_total += stops * params["stop_energy"]
+
+            # Add compacting energy
+            stop_energy_total += (stops / stops_per_compacting) * compacting_energy
 
             # Idle phase
             idle_time = stops * average_idle_time_per_stop * (1.0 - bring_participation)
             total_idle_time += idle_time
-            idle_energy += idle_time * params["idle_energy"]
+            idle_energy_total += idle_time * params["idle_energy"]
 
             # Transport phase: return trip to treatment facility
             transport_energy += treatment_distance * params["energy_per_km"]
@@ -449,7 +454,7 @@ function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPIns
     end
 
     # Total energy
-    total_energy = transport_energy + collection_energy + stop_energy + idle_energy
+    total_energy = transport_energy + collection_energy + stop_energy_total + idle_energy_total
 
     # Energy consumption based on vehicle types
     ev_energy = total_energy * ev_share
@@ -467,8 +472,8 @@ function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPIns
     # Emissions by phases
     transport_emissions = transport_energy / 36.0 * 2.64
     collection_emissions = collection_energy / 36.0 * 2.64
-    stop_emissions = stop_energy / 36.0 * 2.64
-    idle_emissions = idle_energy / 36.0 * 2.64
+    stop_emissions = stop_energy_total / 36.0 * 2.64
+    idle_emissions = idle_energy_total / 36.0 * 2.64
 
     # Output as dictionary
     return Dict(
@@ -481,24 +486,40 @@ function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPIns
         "Total Idle Time (h)" => total_idle_time,
         "Transport Phase (Ehaul)" => Dict("Energy (MJ)" => transport_energy, "Distance (km)" => treatment_distance * length(solution.tourplan), "Emissions (kg CO2)" => transport_emissions),
         "Collection Phase (Edrivecollect)" => Dict("Energy (MJ)" => collection_energy, "Distance (km)" => total_distance, "Emissions (kg CO2)" => collection_emissions),
-        "Stop Phase (Estopcollect)" => Dict("Energy (MJ)" => stop_energy, "Stops" => total_stops, "Emissions (kg CO2)" => stop_emissions),
-        "Idle Phase" => Dict("Energy (MJ)" => idle_energy, "Idle Time (h)" => total_idle_time, "Emissions (kg CO2)" => idle_emissions)
+        "Stop Phase (Estopcollect)" => Dict("Energy (MJ)" => stop_energy_total, "Stops" => total_stops, "Emissions (kg CO2)" => stop_emissions),
+        "Idle Phase" => Dict("Energy (MJ)" => idle_energy_total, "Idle Time (h)" => total_idle_time, "Emissions (kg CO2)" => idle_emissions)
     )
 end
 
-function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64)
+function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64, compacting_energy::Float64, stops_per_compacting::Int, average_speed::Float64, treatment_distance::Float64, average_load::Float64, stop_energy::Float64, energy_per_km::Float64, idle_energy::Float64)
     # Calculate KPIs
     println("\nCalculating KPIs with the following parameters:")
     println("Region: ", region)
     println("Bring Participation: ", bring_participation)
     println("EV Share: ", ev_share)
     println("Average Idle Time per Stop (h): ", average_idle_time_per_stop)
+    println("Compacting Energy (MJ): ", compacting_energy)
+    println("Stops per Compacting: ", stops_per_compacting)
+    println("Average Speed (km/h): ", average_speed)
+    println("Treatment Distance (km): ", treatment_distance)
+    println("Average Load (tons): ", average_load)
+    println("Stop Energy (MJ): ", stop_energy)
+    println("Energy per km (MJ): ", energy_per_km)
+    println("Idle Energy (MJ/h): ", idle_energy)
     println("====================================")
     kpis = calculate_kpis_with_treatment(
         best_solution, instance, region,
         bring_participation,
         ev_share,
-        average_idle_time_per_stop
+        average_idle_time_per_stop,
+        compacting_energy,
+        stops_per_compacting,
+        average_speed,
+        treatment_distance,
+        average_load,
+        stop_energy,
+        energy_per_km,
+        idle_energy
     )
     println("\nKPIs Summary:")
     for (key, value) in kpis
@@ -509,14 +530,14 @@ function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct,
     total_energy = kpis["Total Energy (MJ)"]
     transport_energy = kpis["Transport Phase (Ehaul)"]["Energy (MJ)"]
     collection_energy = kpis["Collection Phase (Edrivecollect)"]["Energy (MJ)"]
-    stop_energy = kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"]
-    idle_energy = kpis["Idle Phase"]["Energy (MJ)"]
+    stop_energy_total = kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"]
+    idle_energy_total = kpis["Idle Phase"]["Energy (MJ)"]
 
     println("\nEnergy Portion by Phase:")
     println("  Transport Phase: ", round(transport_energy / total_energy * 100, digits=2), "%")
     println("  Collection Phase: ", round(collection_energy / total_energy * 100, digits=2), "%")
-    println("  Stop Phase: ", round(stop_energy / total_energy * 100, digits=2), "%")
-    println("  Idle Phase: ", round(idle_energy / total_energy * 100, digits=2), "%")
+    println("  Stop Phase: ", round(stop_energy_total / total_energy * 100, digits=2), "%")
+    println("  Idle Phase: ", round(idle_energy_total / total_energy * 100, digits=2), "%")
 
     # Print the CO2 emissions for each phase
     transport_emissions = kpis["Transport Phase (Ehaul)"]["Emissions (kg CO2)"]
@@ -534,33 +555,73 @@ end
 function run_parameter_study(instance::PVRPInstanceStruct, best_solution::PVRPSolution, save_path::String)
     results = []
 
-    bring_participations = [0.5, 0.7, 0.8, 0.9]
-    ev_shares = [0.2, 0.4, 0.6, 0.8]
-    regions = [:urban, :suburban, :rural]
+    bring_participations = [0.5, 0.7, 0.8, 0.9]  # Different values for bring participation
+    ev_shares = [0.2, 0.4, 0.6, 0.8]  # Different values for EV share
+    regions = [:urban, :suburban, :rural]  # Different regions
+    compacting_energies = [8.0, 10.0, 12.0]  # Different values for compacting energy (MJ)
+    stops_per_compactings = [4, 5, 6]  # Different values for stops per compacting
+    average_speeds = [30.0, 40.0, 50.0]  # Different values for average speed (km/h)
+    treatment_distances = [5.0, 10.0, 15.0]  # Different values for treatment distance (km)
+    average_loads = [4.0, 5.0, 6.0]  # Different values for average load (tons)
+    stop_energies = [2.0, 2.3, 2.5]  # Different values for stop energy (MJ)
+    energies_per_km = [8.0, 9.0, 10.0]  # Different values for energy per km (MJ)
+    idle_energies = [30.0, 36.0, 40.0]  # Different values for idle energy (MJ/h)
 
     for region in regions
         for bring_participation in bring_participations
             for ev_share in ev_shares
-                # Calculate KPIs
-                kpis = calculate_kpis_with_treatment(
-                    best_solution, instance,
-                    region,
-                    bring_participation,
-                    ev_share,
-                    0.1  # Assuming a fixed average idle time per stop
-                )
-                # Save results
-                push!(results, Dict(
-                    "Region" => region,
-                    "Bring Participation" => bring_participation,
-                    "EV Share" => ev_share,
-                    "Total Energy (MJ)" => kpis["Total Energy (MJ)"],
-                    "Total Emissions (kg CO2)" => kpis["Total Emissions (kg CO2)"],
-                    "Transport Phase Energy (MJ)" => kpis["Transport Phase (Ehaul)"]["Energy (MJ)"],
-                    "Collection Phase Energy (MJ)" => kpis["Collection Phase (Edrivecollect)"]["Energy (MJ)"],
-                    "Stop Phase Energy (MJ)" => kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"],
-                    "Idle Phase Energy (MJ)" => kpis["Idle Phase"]["Energy (MJ)"]
-                ))
+                for compacting_energy in compacting_energies
+                    for stops_per_compacting in stops_per_compactings
+                        for average_speed in average_speeds
+                            for treatment_distance in treatment_distances
+                                for average_load in average_loads
+                                    for stop_energy in stop_energies
+                                        for energy_per_km in energies_per_km
+                                            for idle_energy in idle_energies
+                                                # Calculate KPIs
+                                                kpis = calculate_kpis_with_treatment(
+                                                    best_solution, instance,
+                                                    region,
+                                                    bring_participation,
+                                                    ev_share,
+                                                    0.1,  # Assuming a fixed average idle time per stop
+                                                    compacting_energy,
+                                                    stops_per_compacting,
+                                                    average_speed,
+                                                    treatment_distance,
+                                                    average_load,
+                                                    stop_energy,
+                                                    energy_per_km,
+                                                    idle_energy
+                                                )
+                                                # Save results
+                                                push!(results, Dict(
+                                                    "Region" => region,
+                                                    "Bring Participation" => bring_participation,
+                                                    "EV Share" => ev_share,
+                                                    "Compacting Energy (MJ)" => compacting_energy,
+                                                    "Stops per Compacting" => stops_per_compacting,
+                                                    "Average Speed (km/h)" => average_speed,
+                                                    "Treatment Distance (km)" => treatment_distance,
+                                                    "Average Load (tons)" => average_load,
+                                                    "Stop Energy (MJ)" => stop_energy,
+                                                    "Energy per km (MJ)" => energy_per_km,
+                                                    "Idle Energy (MJ/h)" => idle_energy,
+                                                    "Total Energy (MJ)" => kpis["Total Energy (MJ)"],
+                                                    "Total Emissions (kg CO2)" => kpis["Total Emissions (kg CO2)"],
+                                                    "Transport Phase Energy (MJ)" => kpis["Transport Phase (Ehaul)"]["Energy (MJ)"],
+                                                    "Collection Phase Energy (MJ)" => kpis["Collection Phase (Edrivecollect)"]["Energy (MJ)"],
+                                                    "Stop Phase Energy (MJ)" => kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"],
+                                                    "Idle Phase Energy (MJ)" => kpis["Idle Phase"]["Energy (MJ)"]
+                                                ))
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
         end
     end
@@ -568,6 +629,17 @@ function run_parameter_study(instance::PVRPInstanceStruct, best_solution::PVRPSo
     # Save results as YAML
     YAML.write_file(joinpath(save_path, "parameter_study_results.yaml"), results)
     #println("Parameter study results saved to $save_path/parameter_study_results.yaml")
+end
+
+function load_solution_and_calculate_kpis(filepath::String, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64, compacting_energy::Float64, stops_per_compacting::Int, average_speed::Float64, treatment_distance::Float64, average_load::Float64, stop_energy::Float64, energy_per_km::Float64, idle_energy::Float64)
+    # Load the solution from the YAML file
+    solution = load_solution_from_yaml(filepath)
+    
+    # Display the loaded solution
+    display_solution(solution, instance, "Loaded Solution")
+
+    # Calculate and display KPIs
+    display_kpis(solution, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
 end
 
 end # module
