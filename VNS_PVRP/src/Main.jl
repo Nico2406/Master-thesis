@@ -20,17 +20,18 @@ function main()
     stop_energy = 2.3  # Energy consumption per stop (MJ)
     energy_per_km = 9.0  # Energy consumption per km (MJ)
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
-    num_iterations = 1000  # Number of iterations for the VNS algorithm
+    num_iterations = 10  # Number of iterations for the VNS algorithm
 
-    instance_name = "p05"
-    instance = initialize_instance("instances/$instance_name.txt")
+    instance_name = "Weiz_BIO_alt"
+    distance_matrix_filepath = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/real_instances/Weiz_BIO_alt_mtx.txt"
+    instance = initialize_instance("real_instances/$instance_name.yaml")
     plot = plot_instance(instance)
     display(plot)
 
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
     mkpath(save_folder)
 
-    num_runs = 5
+    num_runs = 1
     println("Running VNS for $num_runs runs...")
     start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations)
@@ -78,7 +79,7 @@ function main()
     solution_filepath = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions/p05/3319/solution.yaml"
     println("====================================")
     println("Loading solution from $solution_filepath and calculating KPIs...")
-    load_solution_and_calculate_kpis(solution_filepath, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
+    #load_solution_and_calculate_kpis(solution_filepath, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
 end
 
 main()

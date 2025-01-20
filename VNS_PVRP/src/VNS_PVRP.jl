@@ -9,7 +9,7 @@ include("Shaking.jl")
 include("VNS.jl")
 
 # Import submodules
-using .PVRPInstance: Node, PVRPInstanceStruct, initialize_instance, plot_instance, fill_distance_matrix!
+using .PVRPInstance: Node, PVRPInstanceStruct, initialize_instance, plot_instance, fill_distance_matrix!, read_instance
 using .Solution: Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_solution, display_solution, VNSLogbook, initialize_logbook, update_logbook!, plot_logbook
 using .ConstructionHeuristics: nearest_neighbor
 using .LocalSearch: local_search!
