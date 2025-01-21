@@ -3,3 +3,4 @@ solution.yaml
 runs/*.yaml
 *.png
 *.icloud
+*.txt
