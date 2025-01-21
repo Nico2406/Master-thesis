@@ -131,7 +131,7 @@ function vns!(instance::PVRPInstanceStruct, instance_name::String, save_folder::
     #println("Solution plot saved to $(joinpath(seed_folder, "solution_plot.png"))")
 
     # Run parameter study and save results
-    run_parameter_study(instance, best_overall_solution, seed_folder)
+    # run_parameter_study(instance, best_overall_solution, seed_folder)
 
     return best_overall_solution, best_overall_logbook, best_overall_seed
 end

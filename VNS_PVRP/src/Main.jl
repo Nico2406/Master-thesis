@@ -1,6 +1,6 @@
 using Revise
 using VNS_PVRP
-using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance
+using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance, read_distance_matrix
 using VNS_PVRP.Solution: display_solution, plot_logbook, plot_solution, validate_solution, calculate_kpis_with_treatment, display_kpis, load_solution_and_calculate_kpis
 using VNS_PVRP.VNS: test_vns!
 using FilePathsBase: mkpath
@@ -20,11 +20,15 @@ function main()
     stop_energy = 2.3  # Energy consumption per stop (MJ)
     energy_per_km = 9.0  # Energy consumption per km (MJ)
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
-    num_iterations = 10  # Number of iterations for the VNS algorithm
+    num_iterations = 1000  # Number of iterations for the VNS algorithm
 
-    instance_name = "Weiz_BIO_alt"
-    distance_matrix_filepath = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/real_instances/Weiz_BIO_alt_mtx.txt"
-    instance = initialize_instance("real_instances/$instance_name.yaml")
+# Instanzname und Dateipfade
+instance_name = "Weiz_BIO_alt"
+instance_file_path = "real_instances/" * instance_name * ".yaml"
+distance_matrix_filepath = "real_instances/" * instance_name * "_mtx.txt"
+
+# Initialize instance
+instance = initialize_instance(instance_file_path, distance_matrix_filepath)
     plot = plot_instance(instance)
     display(plot)
 
