@@ -20,22 +20,22 @@ function main()
     stop_energy = 2.3  # Energy consumption per stop (MJ)
     energy_per_km = 9.0  # Energy consumption per km (MJ)
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
-    num_iterations = 10000  # Number of iterations for the VNS algorithm
+    num_iterations = 100000  # Number of iterations for the VNS algorithm
 
 # Instanzname und Dateipfade
-instance_name = "Weiz_BIO_alt"
-instance_file_path = "real_instances/" * instance_name * ".yaml"
+instance_name = "p01"
+instance_file_path = "instances/" * instance_name * ".txt"
 distance_matrix_filepath = "real_instances/" * instance_name * "_mtx.txt"
 
 # Initialize instance
-instance = initialize_instance(instance_file_path, distance_matrix_filepath)
+instance = initialize_instance(instance_file_path)
     plot = plot_instance(instance)
     display(plot)
 
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
     mkpath(save_folder)
 
-    num_runs = 1
+    num_runs = 5
     println("Running VNS for $num_runs runs...")
     start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations)

@@ -24,7 +24,7 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
     for iteration in 1:num_iterations
         try
             # Shaking using only `changevisitcombinations!`
-            change_visit_combinations!(solution, instance)
+            shaking!(solution, instance)
 
             # Perform local search on all changed routes
             for day in keys(solution.tourplan)
@@ -109,10 +109,11 @@ end
 function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int)
     results = []
 
-    # Generate a seed for the run
-    seed = rand(1:10000)
-
     for run in 1:num_runs
+
+        # Generate a seed for the run
+        seed = rand(1:10000)
+
         # Reset the instance for each run
         instance_copy = deepcopy(instance)
 

@@ -7,16 +7,35 @@ using Plots
 
 export shaking!, move!, change_visit_combinations!
 
-function move!(route1::Route, route2::Route, start_idx::Int, segment_length::Int, instance::PVRPInstanceStruct, day::Int)::Float64
-    if start_idx < 1 || start_idx + segment_length - 1 > length(route1.visited_nodes)
-        error("Invalid segment range: out of bounds in route1.")
+function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::Float64
+    if isempty(solution.tourplan[day].routes)
+        return 0.0
     end
+
+    route_ids = collect(1:length(solution.tourplan[day].routes))
+    if length(route_ids) < 2
+        return 0.0
+    end
+    shuffle!(route_ids)
+
+    route1 = solution.tourplan[day].routes[route_ids[1]]
+    route2 = solution.tourplan[day].routes[route_ids[2]]
+
+    if length(route1.visited_nodes) <= 2
+        return 0.0
+    end
+
+    segment_length = rand(1:3)
+    if length(route1.visited_nodes) - segment_length < 2
+        return 0.0
+    end
+    start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
 
     segment = route1.visited_nodes[start_idx:(start_idx + segment_length - 1)]
 
     for node in segment
         if node != 0 && !instance.nodes[node + 1].initialvisitcombination[day]
-            error("Node $node cannot be assigned to day $day with the current visit combination.")
+            return 0.0  # Skip if the node cannot be assigned to the day
         end
     end
 
@@ -40,12 +59,15 @@ function move!(route1::Route, route2::Route, start_idx::Int, segment_length::Int
         return Inf  # Return a high cost to indicate failure
     end
 
-    delta_insert = insert_segment!(route2, best_position, segment, instance)
+    insert_segment!(route2, best_position, segment, instance)
 
     route1.changed = true
     route2.changed = true
 
-    return delta_remove + delta_insert
+    # Update routes and remove empty ones
+    solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
+
+    return delta_remove + best_delta
 end
 
 function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstanceStruct)::Float64
@@ -149,49 +171,15 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
     return total_delta
 end
 
-function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::Float64
-    if isempty(solution.tourplan[day].routes)
+function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct)::Float64
+    if isempty(solution.tourplan)
         return 0.0
     end
 
     if rand(Bool)
-        # Perform move operation
-        route_ids = collect(1:length(solution.tourplan[day].routes))
-        if length(route_ids) < 2
-            return 0.0
-        end
-        shuffle!(route_ids)
-
-        route1 = solution.tourplan[day].routes[route_ids[1]]
-        route2 = solution.tourplan[day].routes[route_ids[2]]
-
-        if length(route1.visited_nodes) <= 2
-            return 0.0
-        end
-
-        segment_length = rand(1:3)
-        if length(route1.visited_nodes) - segment_length < 2
-            return 0.0
-        end
-        start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
-
-        try
-            delta = move!(route1, route2, start_idx, segment_length, instance, day)
-            if delta == Inf
-                return 0.0
-            end
-
-            route1.changed = true
-            route2.changed = true
-
-            # Update routes and remove empty ones
-            solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
-
-            return delta
-        catch e
-            println("Error during shaking on day $day: $e")
-            return 0.0
-        end
+        # Perform move operation on a random day
+        day = rand(keys(solution.tourplan))
+        return move!(solution, instance, day)
     else
         # Perform change visit combinations operation
         return change_visit_combinations!(solution, instance)
