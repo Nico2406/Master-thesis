@@ -20,25 +20,27 @@ function main()
     stop_energy = 2.3  # Energy consumption per stop (MJ)
     energy_per_km = 9.0  # Energy consumption per km (MJ)
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
-    num_iterations = 1000  # Number of iterations for the VNS algorithm
+    num_iterations = 10000  # Number of iterations for the VNS algorithm
+    acceptance_probability = 0.05  # Acceptance probability for the VNS algorithm
+    acceptance_iterations = 3  # Number of acceptance iterations for the VNS algorithm
 
-# Instanzname und Dateipfade
-instance_name = "p04"
-instance_file_path = "instances/" * instance_name * ".txt"
-distance_matrix_filepath = "real_instances/" * instance_name * "_mtx.txt"
+    # Instanzname und Dateipfade
+    instance_name = "p05"
+    instance_file_path = "instances/" * instance_name * ".txt"
+    distance_matrix_filepath = "real_instances/" * instance_name * "_mtx.txt"
 
-# Initialize instance
-instance = initialize_instance(instance_file_path)
+    # Initialize instance
+    instance = initialize_instance(instance_file_path)
     plot = plot_instance(instance)
     display(plot)
 
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
     mkpath(save_folder)
 
-    num_runs = 1
+    num_runs = 3
     println("Running VNS for $num_runs runs...")
     start_time = now()
-    results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations)
+    results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations)
     end_time = now()
     elapsed_time = end_time - start_time
 

@@ -1,7 +1,7 @@
 module Shaking
 
 using ..PVRPInstance: PVRPInstanceStruct, Node, convert_binary_int
-using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, recalculate_plan_length!
 using Random: shuffle, shuffle!, rand
 using Plots
 
@@ -66,6 +66,13 @@ function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::
 
     # Update routes and remove empty ones
     solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
+
+    # we update the route lengths
+    recalculate_route!(route1, instance)
+    recalculate_route!(route2, instance)
+
+    # update the total plan length
+    recalculate_plan_length!(solution)
 
     return delta_remove + best_delta
 end
@@ -180,9 +187,11 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct)::Float64
         # Perform move operation on a random day
         day = rand(keys(solution.tourplan))
         return move!(solution, instance, day)
+        recalculate_plan_length!(solution)
     else
         # Perform change visit combinations operation
         return change_visit_combinations!(solution, instance)
+        recalculate_plan_length!(solution)
     end
 end
 

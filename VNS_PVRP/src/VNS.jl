@@ -4,7 +4,7 @@ using ..PVRPInstance: PVRPInstanceStruct
 using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, run_parameter_study
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
-using ..Shaking: shaking!, change_visit_combinations!
+using ..Shaking: shaking!, change_visit_combinations!, move!
 using Random
 using FilePathsBase: mkpath, joinpath
 using Dates: now
@@ -12,7 +12,7 @@ using Plots: savefig  # Import savefig from Plots
 
 export vns!, test_vns!
 
-function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_name::String, num_iterations::Int, save_folder::String, seed::Int)::Tuple{PVRPSolution, VNSLogbook}
+function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_name::String, num_iterations::Int, save_folder::String, seed::Int, acceptance_probability::Float64, acceptance_iterations::Int)::Tuple{PVRPSolution, VNSLogbook}
     # Set the random seed for reproducibility
     Random.seed!(seed)
 
@@ -20,6 +20,8 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
     logbook = initialize_logbook()
     best_solution = deepcopy(solution)
     best_feasible_solution = deepcopy(solution)
+    best_overall_solution = deepcopy(solution)
+    last_accepted_iteration = 0
 
     for iteration in 1:num_iterations
         try
@@ -31,6 +33,7 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
                 for route in solution.tourplan[day].routes
                     if route.changed
                         local_search!(route, instance, "2opt-first", 1000)
+                        recalculate_route!(route, instance)
                         route.changed = false
                     end
                 end
@@ -59,6 +62,16 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
             if solution.plan_length < best_solution.plan_length
                 best_solution = deepcopy(solution)
                 println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
+                last_accepted_iteration = iteration
+            elseif iteration - last_accepted_iteration <= acceptance_iterations && rand() < acceptance_probability
+                best_solution = deepcopy(solution)
+                println("Accepted worse solution at iteration $iteration: $(best_solution.plan_length)")
+                last_accepted_iteration = iteration
+            end
+
+            # Update the best overall solution
+            if best_solution.plan_length < best_overall_solution.plan_length
+                best_overall_solution = deepcopy(best_solution)
             end
 
             # Log current state
@@ -76,8 +89,15 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
             continue
         end
 
+        # Recalculate the total plan length and duration before the next iteration
+        recalculate_plan_length!(solution)
+
         # Prepare for next iteration by using the best solution so far
-        solution = deepcopy(best_solution)
+        if iteration - last_accepted_iteration > acceptance_iterations
+            solution = deepcopy(best_overall_solution)
+        else
+            solution = deepcopy(best_solution)
+        end
     end
 
     # Create the necessary directories
@@ -86,27 +106,27 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
     mkpath(seed_folder)
 
     # Save logbook and best solution
-    save_solution_to_yaml(best_solution, joinpath(seed_folder, "solution.yaml"))
+    save_solution_to_yaml(best_overall_solution, joinpath(seed_folder, "solution.yaml"))
     save_logbook_to_yaml(logbook, joinpath(seed_folder, "logbook.yaml"))
 
     # Save run information
-    save_run_info_to_yaml(seed, 0.0, best_solution.plan_length, validate_solution(best_solution, instance), joinpath(seed_folder, "run_info.yaml"))
+    save_run_info_to_yaml(seed, 0.0, best_overall_solution.plan_length, validate_solution(best_overall_solution, instance), joinpath(seed_folder, "run_info.yaml"))
 
     # Save the solution evolution plot
     solution_plot_logbook = plot_logbook(logbook, instance_name, seed, seed_folder)
     savefig(solution_plot_logbook, joinpath(seed_folder, "solution_evolution_plot.png"))
 
     # Save the solution plot
-    solution_plot = plot_solution(best_solution, instance)
+    solution_plot = plot_solution(best_overall_solution, instance)
     savefig(solution_plot, joinpath(seed_folder, "solution_plot.png"))
 
     # Run parameter study and save results
-    # run_parameter_study(instance, best_solution, seed_folder)
+    # run_parameter_study(instance, best_overall_solution, seed_folder)
 
-    return best_solution, logbook
+    return best_overall_solution, logbook
 end
 
-function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int)
+function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int, acceptance_probability::Float64, acceptance_iterations::Int)
     results = []
 
     for run in 1:num_runs
@@ -121,7 +141,7 @@ function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs
         initial_solution = nearest_neighbor(instance_copy)
 
         # Run VNS and collect the best solution and logbook
-        best_solution, logbook = vns!(initial_solution, instance_copy, instance_name, num_iterations, save_folder, seed)
+        best_solution, logbook = vns!(initial_solution, instance_copy, instance_name, num_iterations, save_folder, seed, acceptance_probability, acceptance_iterations)
 
         # Align initial visit combinations with the current state
         for day in keys(best_solution.tourplan)
