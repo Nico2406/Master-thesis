@@ -93,12 +93,21 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
         # Insert node into new days
         for (day, vrp_solution) in solution.tourplan
             if new_combination[day] && !current_combination[day]
+                # Check if the node is already present on the day
+                if any(node in route.visited_nodes for route in vrp_solution.routes)
+                    continue
+                end
+
                 best_delta = Inf
                 best_route = nothing
                 best_position = -1
 
                 for route in vrp_solution.routes
-                    if route.load + instance.nodes[node + 1].demand <= instance.vehicleload && route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] <= instance.maximumrouteduration
+                    if route.load + instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency <= instance.vehicleload && 
+                       route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + 
+                       instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] + 
+                       instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency <= instance.maximumrouteduration
+
                         for insert_idx in 2:length(route.visited_nodes)
                             temp_route = deepcopy(route)
                             delta = insert_segment!(temp_route, insert_idx, [node], instance)
@@ -118,7 +127,9 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
                     # println("Node $node inserted into Day $day at position $best_position. Delta: $delta")
                 else
                     # Create a new route if no existing route can accommodate the node
-                    new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, true, false)
+                    new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 
+                                      instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency, 
+                                      0.0, 0.0, 0.0, true, false)
                     recalculate_route!(new_route, instance)
                     push!(vrp_solution.routes, new_route)
                     total_delta += new_route.length
@@ -127,6 +138,11 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
                 end
             end
         end
+    end
+
+    # Remove empty routes
+    for (day, vrp_solution) in solution.tourplan
+        vrp_solution.routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), vrp_solution.routes)
     end
 
     # println("Change visit combinations completed. Total delta: $total_delta")

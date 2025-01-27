@@ -169,11 +169,6 @@ function insert_segment!(route::Route, start_idx::Int, segment::Vector{Int}, ins
     return delta
 end
 
-# Function to validate a route
-function validate_route(route::Route, instance::PVRPInstanceStruct)::Bool
-    return validate_route(route, instance, 1)  # Default to day 1 if day is not provided
-end
-
 # Function to validate a route for a specific day
 function validate_route(route::Route, instance::PVRPInstanceStruct, day::Int)::Bool
     recalculate_route!(route, instance)
@@ -351,7 +346,7 @@ function plot_logbook(logbook::VNSLogbook, instance_name::String, seed::Int, out
         title = "Solution Evolution",
         size = (1200, 800)
     )
-    savefig(sols_p, joinpath(output_dir, instance_name, string(seed), "solution_evolution_plot.png"))
+    savefig(sols_p, joinpath(output_dir, "solution_evolution_plot.png"))
 
     # Plot parameters
     if !isempty(logbook.parameters)
