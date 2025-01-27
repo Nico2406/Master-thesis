@@ -78,7 +78,7 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
     all_nodes = unique(vcat([route.visited_nodes[2:end-1] for vrp_solution in values(solution.tourplan) for route in vrp_solution.routes]...))
     # println("All nodes in the solution: $all_nodes")
     
-    num_changes = rand(1:min(6, length(all_nodes)))  # Random number of nodes to update
+    num_changes = rand(1:min(3, length(all_nodes)))  # Random number of nodes to update
     selected_nodes = shuffle(all_nodes)[1:num_changes]
     # println("Selected nodes for visit combination change: $selected_nodes")
 

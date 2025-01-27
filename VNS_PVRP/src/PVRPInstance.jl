@@ -225,8 +225,7 @@ function read_distance_matrix!(instance::PVRPInstanceStruct, file_path::String)
     # Read the lines of the file
     lines_dist = readlines(file_path)
     
-    # Skip the first 3 header lines
-    matrix_lines = lines_dist[4:end]
+    matrix_lines = lines_dist[1:end]
     
     # Initialize the distance matrix
     nr_nodes = length(matrix_lines)

@@ -4,7 +4,7 @@ using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance
 using VNS_PVRP.Solution: display_solution, plot_logbook, plot_solution, validate_solution, calculate_kpis_with_treatment, display_kpis, load_solution_and_calculate_kpis
 using VNS_PVRP.VNS: test_vns!
 using FilePathsBase: mkpath
-using Dates: now
+using Dates: now, Minute, Dates
 
 function main()
     # Parameters for KPI calculation
@@ -20,10 +20,10 @@ function main()
     stop_energy = 2.3  # Energy consumption per stop (MJ)
     energy_per_km = 9.0  # Energy consumption per km (MJ)
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
-    num_iterations = 100000  # Number of iterations for the VNS algorithm
+    num_iterations = 1000  # Number of iterations for the VNS algorithm
 
 # Instanzname und Dateipfade
-instance_name = "p01"
+instance_name = "p04"
 instance_file_path = "instances/" * instance_name * ".txt"
 distance_matrix_filepath = "real_instances/" * instance_name * "_mtx.txt"
 
@@ -35,7 +35,7 @@ instance = initialize_instance(instance_file_path)
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
     mkpath(save_folder)
 
-    num_runs = 5
+    num_runs = 1
     println("Running VNS for $num_runs runs...")
     start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations)
@@ -63,7 +63,10 @@ instance = initialize_instance(instance_file_path)
     println("Seed used: ", seed)
     println("Number of Runs: ", num_runs)
     println("Number of Iterations in the VNS: ", num_iterations)
+    elapsed_time_minutes = div(Dates.value(elapsed_time), 60000)
+    elapsed_time_seconds = round(Dates.value(elapsed_time) / 1000 % 60, digits=2)
     println("Elapsed Time: ", elapsed_time)
+    println("Elapsed Time (minutes): ", elapsed_time_minutes, " minutes and ", elapsed_time_seconds, " seconds")
     println("====================================")
 
     display_solution(best_solution, instance, "Final Solution")

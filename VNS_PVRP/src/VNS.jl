@@ -23,7 +23,7 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
 
     for iteration in 1:num_iterations
         try
-            # Shaking using only `changevisitcombinations!`
+            # Shaking
             shaking!(solution, instance)
 
             # Perform local search on all changed routes
