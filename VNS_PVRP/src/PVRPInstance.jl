@@ -236,7 +236,7 @@ function read_distance_matrix!(instance::PVRPInstanceStruct, file_path::String)
     
     # Parse each line into the matrix
     for i in 1:nr_nodes
-        instance.distance_matrix[i, :] = parse.(Float64, replace.(split(matrix_lines[i], ";"), "*" => "Inf"))
+        instance.distance_matrix[i, :] = parse.(Float64, replace.(split(matrix_lines[i], ","), "*" => "Inf"))
     end
 end
 

@@ -20,18 +20,32 @@ function main()
     stop_energy = 2.3  # Energy consumption per stop (MJ)
     energy_per_km = 9.0  # Energy consumption per km (MJ)
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
-    num_iterations = 10000  # Number of iterations for the VNS algorithm
+
+    # VNS algorithm parameters
+    num_iterations = 1000  # Number of iterations for the VNS algorithm
     acceptance_probability = 0.05  # Acceptance probability for the VNS algorithm
     acceptance_iterations = 3  # Number of acceptance iterations for the VNS algorithm
 
-    # Instanzname und Dateipfade
+    # Instance configuration
     instance_name = "p05"
-    instance_file_path = "instances/" * instance_name * ".txt"
-    distance_matrix_filepath = "real_instances/" * instance_name * "_mtx.txt"
+    use_cordeau_instance = true  # Set to true if using Cordeau instances
+
+    if use_cordeau_instance
+        instance_file_path = "instances/" * instance_name * ".txt"
+        distance_matrix_filepath = nothing
+    else
+        instance_file_path = "real_instances/" * instance_name * "_Bringsystem_ohneIFs.yaml"
+        distance_matrix_filepath = "real_instances/mtx_" * instance_name * "_2089ohneIF_min.txt"
+    end
 
     # Initialize instance
-    instance = initialize_instance(instance_file_path)
-    plot = plot_instance(instance)
+    if isnothing(distance_matrix_filepath)
+        instance = VNS_PVRP.PVRPInstance.initialize_instance(instance_file_path)
+    else
+        instance = VNS_PVRP.PVRPInstance.initialize_instance(instance_file_path, distance_matrix_filepath)
+    end
+
+    plot = VNS_PVRP.PVRPInstance.plot_instance(instance)
     display(plot)
 
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
