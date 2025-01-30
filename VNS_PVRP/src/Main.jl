@@ -22,12 +22,13 @@ function main()
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
 
     # VNS algorithm parameters
-    num_iterations = 1000  # Number of iterations for the VNS algorithm
-    acceptance_probability = 0.05  # Acceptance probability for the VNS algorithm
-    acceptance_iterations = 3  # Number of acceptance iterations for the VNS algorithm
+    num_iterations = 10000  # Number of iterations for the VNS algorithm
+    acceptance_probability = 0.1  # Acceptance probability for the VNS algorithm
+    acceptance_iterations = 10  # Number of acceptance iterations for the VNS algorithm
+    no_improvement_iterations = 15  # Number of iterations without improvement before stopping the VNS algorithm
 
     # Instance configuration
-    instance_name = "p05"
+    instance_name = "p05" 
     use_cordeau_instance = true  # Set to true if using Cordeau instances
 
     if use_cordeau_instance
@@ -45,16 +46,19 @@ function main()
         instance = VNS_PVRP.PVRPInstance.initialize_instance(instance_file_path, distance_matrix_filepath)
     end
 
+    # Plot the instance
     plot = VNS_PVRP.PVRPInstance.plot_instance(instance)
     display(plot)
 
+    # Save folder for the solutions
     save_folder = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions"
     mkpath(save_folder)
 
-    num_runs = 3
+    # Run the VNS algorithm with multiple runs
+    num_runs = 5
     println("Running VNS for $num_runs runs...")
     start_time = now()
-    results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations)
+    results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
     end_time = now()
     elapsed_time = end_time - start_time
 
@@ -63,6 +67,7 @@ function main()
     best_result = results[best_result_index]
     best_solution, logbook, is_solution_valid, seed = best_result[1], best_result[2], best_result[3], best_result[4]
 
+    # Display the logbook
     logbook_plot = plot_logbook(logbook, instance_name, seed, save_folder)
     display(logbook_plot)
 
@@ -71,7 +76,7 @@ function main()
     println("Instance Name: ", instance_name)
     println("Number of Vehicles: ", instance.numberofvehicles)
     println("Number of Days: ", instance.numberofdays)
-    println("Number of Nodes: ", instance.numberofcustomers)
+    println("Number of Customers: ", instance.numberofcustomers-1) # Subtract the depot
     println("Vehicle Capacity: ", instance.vehicleload)
     println("Maximum Route Duration: ", instance.maximumrouteduration)
     println("Best Solution Length: ", best_solution.plan_length)
@@ -85,6 +90,7 @@ function main()
     println("Elapsed Time (minutes): ", elapsed_time_minutes, " minutes and ", elapsed_time_seconds, " seconds")
     println("====================================")
 
+    # Display the best solution
     display_solution(best_solution, instance, "Final Solution")
 
     # Validate the final solution

@@ -32,6 +32,8 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
             for day in keys(solution.tourplan)
                 for route in solution.tourplan[day].routes
                     if route.changed
+                        local_search!(route, instance, "reinsert-first", 1000)
+                        local_search!(route, instance, "swap-first", 1000)
                         local_search!(route, instance, "2opt-first", 1000)
                         recalculate_route!(route, instance)
                         route.changed = false
@@ -74,6 +76,7 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
                 best_overall_solution = deepcopy(best_solution)
             end
 
+
             # Log current state
             update_logbook!(
                 logbook,
@@ -95,6 +98,7 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
         # Prepare for next iteration by using the best solution so far
         if iteration - last_accepted_iteration > acceptance_iterations
             solution = deepcopy(best_overall_solution)
+            last_accepted_iteration = iteration  # Reset the last accepted iteration
         else
             solution = deepcopy(best_solution)
         end

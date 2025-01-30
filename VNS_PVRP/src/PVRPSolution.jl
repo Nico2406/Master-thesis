@@ -230,6 +230,7 @@ function validate_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)::Bool
             end
         end
     end
+    recalculate_plan_length!(sol)
     return valid
 end
 
