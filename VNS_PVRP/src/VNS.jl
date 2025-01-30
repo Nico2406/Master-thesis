@@ -4,7 +4,7 @@ using ..PVRPInstance: PVRPInstanceStruct
 using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, run_parameter_study
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
-using ..Shaking: shaking!, change_visit_combinations!, move!
+using ..Shaking: shaking!, change_visit_combinations!, move!, change_visit_combinations_sequences!, change_visit_combinations_sequences_no_improvement!
 using Random
 using FilePathsBase: mkpath, joinpath
 using Dates: now
@@ -12,7 +12,7 @@ using Plots: savefig  # Import savefig from Plots
 
 export vns!, test_vns!
 
-function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_name::String, num_iterations::Int, save_folder::String, seed::Int, acceptance_probability::Float64, acceptance_iterations::Int)::Tuple{PVRPSolution, VNSLogbook}
+function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_name::String, num_iterations::Int, save_folder::String, seed::Int, acceptance_probability::Float64, acceptance_iterations::Int, no_improvement_iterations::Int)::Tuple{PVRPSolution, VNSLogbook}
     # Set the random seed for reproducibility
     Random.seed!(seed)
 
@@ -22,6 +22,7 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
     best_feasible_solution = deepcopy(solution)
     best_overall_solution = deepcopy(solution)
     last_accepted_iteration = 0
+    last_improvement_iteration = 0
 
     for iteration in 1:num_iterations
         try
@@ -65,6 +66,7 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
                 best_solution = deepcopy(solution)
                 println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
                 last_accepted_iteration = iteration
+                last_improvement_iteration = iteration
             elseif iteration - last_accepted_iteration <= acceptance_iterations && rand() < acceptance_probability
                 best_solution = deepcopy(solution)
                 println("Accepted worse solution at iteration $iteration: $(best_solution.plan_length)")
@@ -76,6 +78,13 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
                 best_overall_solution = deepcopy(best_solution)
             end
 
+            # If no improvement for a certain number of iterations, apply change_visit_combinations_sequence
+            if iteration - last_improvement_iteration >= no_improvement_iterations
+                println("Applying change_visit_combinations_sequence to escape local optimum at iteration $iteration")
+                change_visit_combinations_sequences_no_improvement!(solution, instance)
+                recalculate_plan_length!(solution)
+                last_improvement_iteration = iteration
+            end
 
             # Log current state
             update_logbook!(
@@ -95,8 +104,9 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
         # Recalculate the total plan length and duration before the next iteration
         recalculate_plan_length!(solution)
 
-        # Prepare for next iteration by using the best solution so far
+        # ✅ Fix: Reset to best known solution after acceptance period expires
         if iteration - last_accepted_iteration > acceptance_iterations
+            println("Reverting to best known solution at iteration $iteration: $(best_overall_solution.plan_length)")
             solution = deepcopy(best_overall_solution)
             last_accepted_iteration = iteration  # Reset the last accepted iteration
         else
@@ -124,13 +134,10 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
     solution_plot = plot_solution(best_overall_solution, instance)
     savefig(solution_plot, joinpath(seed_folder, "solution_plot.png"))
 
-    # Run parameter study and save results
-    # run_parameter_study(instance, best_overall_solution, seed_folder)
-
     return best_overall_solution, logbook
 end
 
-function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int, acceptance_probability::Float64, acceptance_iterations::Int)
+function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int, acceptance_probability::Float64, acceptance_iterations::Int, no_improvement_iterations::Int)::Vector{Tuple{PVRPSolution, VNSLogbook, Bool, Int}}
     results = []
 
     for run in 1:num_runs
@@ -145,7 +152,7 @@ function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs
         initial_solution = nearest_neighbor(instance_copy)
 
         # Run VNS and collect the best solution and logbook
-        best_solution, logbook = vns!(initial_solution, instance_copy, instance_name, num_iterations, save_folder, seed, acceptance_probability, acceptance_iterations)
+        best_solution, logbook = vns!(initial_solution, instance_copy, instance_name, num_iterations, save_folder, seed, acceptance_probability, acceptance_iterations, no_improvement_iterations)
 
         # Align initial visit combinations with the current state
         for day in keys(best_solution.tourplan)
