@@ -22,20 +22,20 @@ function main()
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
 
     # VNS algorithm parameters
-    num_iterations = 10000  # Number of iterations for the VNS algorithm
-    acceptance_probability = 0.1  # Acceptance probability for the VNS algorithm
-    acceptance_iterations = 10  # Number of acceptance iterations for the VNS algorithm
-    no_improvement_iterations = 15  # Number of iterations without improvement before stopping the VNS algorithm
+    num_iterations = 5000 # Number of iterations for the VNS algorithm
+    acceptance_probability = 0.00  # Acceptance probability for the VNS algorithm
+    acceptance_iterations = 5  # Number of acceptance iterations for the VNS algorithm
+    no_improvement_iterations = 500 # Number of iterations without improvement before stopping the VNS algorithm
 
     # Instance configuration
-    instance_name = "p05" 
+    instance_name = "p02" 
     use_cordeau_instance = true  # Set to true if using Cordeau instances
 
     if use_cordeau_instance
         instance_file_path = "instances/" * instance_name * ".txt"
         distance_matrix_filepath = nothing
     else
-        instance_file_path = "real_instances/" * instance_name * "_Bringsystem_ohneIFs.yaml"
+        instance_file_path = "real_instances/" * instance_name * "_Holsystem1min_ohneIFs.yaml"
         distance_matrix_filepath = "real_instances/mtx_" * instance_name * "_2089ohneIF_min.txt"
     end
 
@@ -55,7 +55,7 @@ function main()
     mkpath(save_folder)
 
     # Run the VNS algorithm with multiple runs
-    num_runs = 5
+    num_runs = 1
     println("Running VNS for $num_runs runs...")
     start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
@@ -76,11 +76,13 @@ function main()
     println("Instance Name: ", instance_name)
     println("Number of Vehicles: ", instance.numberofvehicles)
     println("Number of Days: ", instance.numberofdays)
-    println("Number of Customers: ", instance.numberofcustomers-1) # Subtract the depot
+    println("Number of Customers: ", instance.numberofcustomers)
     println("Vehicle Capacity: ", instance.vehicleload)
     println("Maximum Route Duration: ", instance.maximumrouteduration)
+    println("====================================")
     println("Best Solution Length: ", best_solution.plan_length)
     println("Total Plan Duration: ", best_solution.plan_duration)
+    println("====================================")
     println("Seed used: ", seed)
     println("Number of Runs: ", num_runs)
     println("Number of Iterations in the VNS: ", num_iterations)
@@ -88,6 +90,9 @@ function main()
     elapsed_time_seconds = round(Dates.value(elapsed_time) / 1000 % 60, digits=2)
     println("Elapsed Time: ", elapsed_time)
     println("Elapsed Time (minutes): ", elapsed_time_minutes, " minutes and ", elapsed_time_seconds, " seconds")
+    println("====================================")
+
+    println("Best Solution found in run $best_result_index")
     println("====================================")
 
     # Display the best solution

@@ -7,17 +7,12 @@ using Plots
 
 export shaking!, move!, change_visit_combinations!, change_visit_combinations_sequences!, change_visit_combinations_sequences_no_improvement!
 
-function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::Float64
-    if isempty(solution.tourplan[day].routes)
+function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int, k::Int)::Float64
+    if isempty(solution.tourplan[day].routes) || length(solution.tourplan[day].routes) < 2
         return 0.0
     end
 
-    route_ids = collect(1:length(solution.tourplan[day].routes))
-    if length(route_ids) < 2
-        return 0.0
-    end
-    shuffle!(route_ids)
-
+    route_ids = shuffle(collect(1:length(solution.tourplan[day].routes)))
     route1 = solution.tourplan[day].routes[route_ids[1]]
     route2 = solution.tourplan[day].routes[route_ids[2]]
 
@@ -25,12 +20,12 @@ function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::
         return 0.0
     end
 
-    segment_length = rand(1:3)
+    segment_length = min(k, rand(1:3))
     if length(route1.visited_nodes) - segment_length < 2
         return 0.0
     end
-    start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
 
+    start_idx = rand(2:(length(route1.visited_nodes) - segment_length))
     segment = route1.visited_nodes[start_idx:(start_idx + segment_length - 1)]
 
     for node in segment
@@ -40,7 +35,6 @@ function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::
     end
 
     delta_remove = remove_segment!(route1, start_idx, segment_length, instance)
-
     best_delta = Inf
     best_position = -1
 
@@ -54,40 +48,31 @@ function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int)::
     end
 
     if best_position == -1
-        # Revert the removal
         insert_segment!(route1, start_idx, segment, instance)
         return Inf  # Return a high cost to indicate failure
     end
 
     insert_segment!(route2, best_position, segment, instance)
-
     route1.changed = true
     route2.changed = true
 
-    # Update routes and remove empty ones
-    solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), solution.tourplan[day].routes)
-
-    # we update the route lengths
     recalculate_route!(route1, instance)
     recalculate_route!(route2, instance)
-
-    # update the total plan length
     recalculate_plan_length!(solution)
 
     return delta_remove + best_delta
 end
 
-function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstanceStruct)::Float64
+function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstanceStruct, k::Int)::Float64
     total_delta = 0.0
 
     # Collect all nodes in the solution (excluding depot)
     all_nodes = unique(vcat([route.visited_nodes[2:end-1] for vrp_solution in values(solution.tourplan) for route in vrp_solution.routes]...))
 
-    # Determine the number of nodes to change (5-10% of all nodes)
+    # Bestimmen der Anzahl der zu ändernden Nodes abhängig von k
     num_nodes = length(all_nodes)
-    percentage = rand(5:10) / 100
-    num_changes = max(1, round(Int, percentage * num_nodes))  # Ensure at least one node is selected
-    selected_nodes = shuffle(all_nodes)[1:num_changes]
+    max_changes = min(k, num_nodes)  # Maximal k Kunden ändern
+    selected_nodes = shuffle(all_nodes)[1:max_changes]
 
     for node in selected_nodes
         current_combination = instance.nodes[node + 1].initialvisitcombination
@@ -306,7 +291,7 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
     total_delta = 0.0
     all_nodes = unique(vcat([route.visited_nodes[2:end-1] for vrp_solution in values(solution.tourplan) for route in vrp_solution.routes]...))
     num_nodes = length(all_nodes)
-    percentage = rand(10:15) / 100
+    percentage = rand(15:25) / 100
     num_changes = max(1, round(Int, percentage * num_nodes))
     selected_nodes = shuffle(all_nodes)[1:num_changes]
 
@@ -434,28 +419,102 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
     return total_delta
 end
 
-function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct)::Float64
+function cross_exchange!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int, k::Int)::Float64
+    if isempty(solution.tourplan[day].routes) || length(solution.tourplan[day].routes) < 2
+        return 0.0
+    end
+
+    route_ids = shuffle(collect(1:length(solution.tourplan[day].routes)))
+    route1 = solution.tourplan[day].routes[route_ids[1]]
+    route2 = solution.tourplan[day].routes[route_ids[2]]
+
+    if length(route1.visited_nodes) <= 2 || length(route2.visited_nodes) <= 2
+        return 0.0
+    end
+
+    segment_length = min(k, rand(1:6))  # Maximal 6 Kunden pro Segment
+    if length(route1.visited_nodes) - segment_length < 2 || length(route2.visited_nodes) - segment_length < 2
+        return 0.0
+    end
+
+    start_idx1 = rand(2:(length(route1.visited_nodes) - segment_length))
+    start_idx2 = rand(2:(length(route2.visited_nodes) - segment_length))
+
+    segment1 = route1.visited_nodes[start_idx1:(start_idx1 + segment_length - 1)]
+    segment2 = route2.visited_nodes[start_idx2:(start_idx2 + segment_length - 1)]
+
+    for node in segment1
+        if node != 0 && !instance.nodes[node + 1].initialvisitcombination[day]
+            return 0.0  # Skip if the node cannot be assigned to the day
+        end
+    end
+    for node in segment2
+        if node != 0 && !instance.nodes[node + 1].initialvisitcombination[day]
+            return 0.0  # Skip if the node cannot be assigned to the day
+        end
+    end
+
+    delta_remove1 = remove_segment!(route1, start_idx1, segment_length, instance)
+    delta_remove2 = remove_segment!(route2, start_idx2, segment_length, instance)
+
+    best_delta = Inf
+    best_position1, best_position2 = -1, -1
+
+    for insert_idx1 in 2:length(route1.visited_nodes)
+        for insert_idx2 in 2:length(route2.visited_nodes)
+            temp_route1 = deepcopy(route1)
+            temp_route2 = deepcopy(route2)
+            delta_insert1 = insert_segment!(temp_route1, insert_idx1, segment2, instance)
+            delta_insert2 = insert_segment!(temp_route2, insert_idx2, segment1, instance)
+            
+            if temp_route1.load <= instance.vehicleload && temp_route2.load <= instance.vehicleload && (delta_insert1 + delta_insert2 < best_delta)
+                best_delta = delta_insert1 + delta_insert2
+                best_position1, best_position2 = insert_idx1, insert_idx2
+            end
+        end
+    end
+
+    if best_position1 == -1 || best_position2 == -1
+        insert_segment!(route1, start_idx1, segment1, instance)
+        insert_segment!(route2, start_idx2, segment2, instance)
+        return Inf  # Return a high cost to indicate failure
+    end
+
+    insert_segment!(route1, best_position1, segment2, instance)
+    insert_segment!(route2, best_position2, segment1, instance)
+    
+    route1.changed = true
+    route2.changed = true
+
+    recalculate_route!(route1, instance)
+    recalculate_route!(route2, instance)
+    recalculate_plan_length!(solution)
+
+    return delta_remove1 + delta_remove2 + best_delta
+end
+
+function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, k::Int)::Float64
     if isempty(solution.tourplan)
         return 0.0
     end
 
-    choice = rand(1:3)
     delta = 0.0
-    if choice == 1
-        # Perform move operation on a random day
+
+    if 1 <= k <= 6
+        # Change visit combinations operation
+        delta = change_visit_combinations!(solution, instance, k)
+    elseif 7 <= k <= 9
+        # Move operation on a random day
         day = rand(keys(solution.tourplan))
-        delta = move!(solution, instance, day)
-    elseif choice == 2
-        # Perform change visit combinations operation
-        delta = change_visit_combinations!(solution, instance)
-    else
-        # Perform change visit combinations sequences operation
-        delta = change_visit_combinations_sequences!(solution, instance)
+        delta = move!(solution, instance, day, k)
+    elseif 10 <= k <= 15
+        # Placeholder for Cross-Exchange operation
+        day = rand(keys(solution.tourplan))
+        delta = cross_exchange!(solution, instance, day, k)
     end
 
     # Recalculate the total plan length
     recalculate_plan_length!(solution)
-
 
     return delta
 end
