@@ -240,6 +240,24 @@ function read_distance_matrix!(instance::PVRPInstanceStruct, file_path::String)
     end
 end
 
+function read_distance_matrix(file_path::String)::Matrix{Float64}
+    # Read the lines of the file
+    lines_dist = readlines(file_path)
+    
+    matrix_lines = lines_dist[1:end]
+    
+    # Initialize the distance matrix
+    nr_nodes = length(matrix_lines)
+    distance_matrix = zeros(Float64, nr_nodes, nr_nodes)
+    
+    # Parse each line into the matrix
+    for i in 1:nr_nodes
+        distance_matrix[i, :] = parse.(Float64, replace.(split(matrix_lines[i], ","), "*" => "Inf"))
+    end
+    
+    return distance_matrix
+end
+
 
 function plot_instance(inst::PVRPInstanceStruct; plotsize = (2000, 2000), show_legend = true, tickfontsize = 15)
     x_coords = [node.x for node in inst.nodes]

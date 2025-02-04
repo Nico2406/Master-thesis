@@ -5,7 +5,7 @@ using Plots
 using YAML
 using YAML: write_file, load_file
 
-export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, calculate_kpis_with_treatment, display_kpis, run_parameter_study
+export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, calculate_kpis_with_treatment, display_kpis, run_parameter_study, Calculate_KPIs_real_instance
 
 # Define a mutable struct to represent a route
 mutable struct Route
@@ -486,6 +486,115 @@ function calculate_kpis_with_treatment(solution::PVRPSolution, instance::PVRPIns
         "Idle Phase" => Dict("Energy (MJ)" => idle_energy_total, "Idle Time (h)" => total_idle_time, "Emissions (kg CO2)" => idle_emissions)
     )
 end
+
+function Calculate_KPIs_real_instance(
+    solution::PVRPSolution, 
+    instance::PVRPInstanceStruct, 
+    region::Symbol, 
+    bring_participation::Float64, 
+    ev_share::Float64, 
+    compacting_energy::Float64, 
+    stops_per_compacting::Int, 
+    treatment_distance::Float64, 
+    average_load::Float64, 
+    stop_energy::Float64, 
+    energy_per_km::Float64, 
+    distance_matrix_meters::Matrix{Float64}, 
+    time_matrix_minutes::Matrix{Float64}
+)::Dict{String, Any}
+    
+    # Default values based on region
+    defaults = Dict(
+        :urban => Dict(),
+        :suburban => Dict(),
+        :rural => Dict()
+    )
+    params = defaults[region]
+    params["load"] = average_load
+    params["stop_energy"] = stop_energy
+    params["energy_per_km"] = energy_per_km
+
+    # Initialize variables
+    total_energy = 0.0
+    total_stops = 0
+    total_distance = 0.0
+    total_time = 0.0
+
+    # Energy consumption by phases
+    transport_energy = 0.0  # Ehaul
+    collection_energy = 0.0  # Edrivecollect
+    stop_energy_total = 0.0  # Estopcollect
+
+    for (day, vrp_solution) in solution.tourplan
+        for route in vrp_solution.routes
+            nodes = route.visited_nodes  # Reihenfolge der besuchten Knoten
+            route_distance = 0.0
+            route_time = 0.0
+
+            # Berechnung der Strecke und Zeit basierend auf den Matrizen
+            for i in 1:(length(nodes) - 1)
+                route_distance += distance_matrix_meters[nodes[i] + 1, nodes[i+1] + 1]
+                route_time += time_matrix_minutes[nodes[i] + 1, nodes[i+1] + 1]
+            end
+
+            # Umrechnung der Distanz in km
+            route_distance_km = route_distance / 1000  
+
+            total_distance += route_distance_km
+            total_time += route_time
+
+            # Collection energy
+            collection_energy += route_distance_km * params["energy_per_km"]
+
+            # Stops und Energieverbrauch
+            stops = length(nodes) - 2  # Exklusive Depot
+            total_stops += stops
+            stop_energy_total += stops * params["stop_energy"]
+
+            # Add compacting energy
+            stop_energy_total += (stops / stops_per_compacting) * compacting_energy
+
+            # Transport phase: Rückfahrt zur Behandlungsanlage
+            transport_energy += treatment_distance * params["energy_per_km"]
+        end
+    end
+
+    # Gesamtenergie
+    total_energy = transport_energy + collection_energy + stop_energy_total
+
+    # Energieverbrauch nach Fahrzeugtypen
+    ev_energy = total_energy * ev_share
+    diesel_energy = total_energy * (1 - ev_share)
+
+    # Umrechnung in spezifische Einheiten
+    diesel_liters = diesel_energy / 36.0  # 1 Liter Diesel = 36 MJ
+    ev_mwh = ev_energy / 3600.0  # 1 MWh = 3600 MJ
+
+    # Emissionen (CO2 in kg)
+    diesel_emissions = diesel_liters * 2.64  # kg CO2 pro Liter Diesel
+    ev_emissions = ev_mwh * 0.0  # Annahme: 0 Emissionen für E-Fahrzeuge
+    total_emissions = diesel_emissions + ev_emissions
+
+    # Emissionen nach Phasen
+    transport_emissions = transport_energy / 36.0 * 2.64
+    collection_emissions = collection_energy / 36.0 * 2.64
+    stop_emissions = stop_energy_total / 36.0 * 2.64
+
+    # Output als Dictionary
+    return Dict(
+        "Total Energy (MJ)" => total_energy,
+        "EV Consumption (MWh)" => ev_mwh,
+        "Diesel Consumption (Liters)" => diesel_liters,
+        "Total Emissions (kg CO2)" => total_emissions,
+        "Total Distance (km)" => total_distance,
+        "Total Time (min)" => total_time,
+        "Total Stops" => total_stops,
+        "Transport Phase (Ehaul)" => Dict("Energy (MJ)" => transport_energy, "Distance (km)" => treatment_distance * length(solution.tourplan), "Emissions (kg CO2)" => transport_emissions),
+        "Collection Phase (Edrivecollect)" => Dict("Energy (MJ)" => collection_energy, "Distance (km)" => total_distance, "Emissions (kg CO2)" => collection_emissions),
+        "Stop Phase (Estopcollect)" => Dict("Energy (MJ)" => stop_energy_total, "Stops" => total_stops, "Emissions (kg CO2)" => stop_emissions)
+    )
+end
+
 
 function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64, compacting_energy::Float64, stops_per_compacting::Int, average_speed::Float64, treatment_distance::Float64, average_load::Float64, stop_energy::Float64, energy_per_km::Float64, idle_energy::Float64)
     # Calculate KPIs

@@ -1,7 +1,7 @@
 module VNS
 
 using ..PVRPInstance: PVRPInstanceStruct
-using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, run_parameter_study
+using ..Solution: PVRPSolution, VRPSolution, Route, recalculate_route!, remove_segment!, insert_segment!, validate_solution, display_solution, plot_solution, save_solution_to_yaml, save_run_info_to_yaml, VNSLogbook, initialize_logbook, update_logbook!, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, run_parameter_study, load_solution_from_yaml
 using ..ConstructionHeuristics: nearest_neighbor
 using ..LocalSearch: local_search!
 using ..Shaking: shaking!, change_visit_combinations!, move!, change_visit_combinations_sequences!, change_visit_combinations_sequences_no_improvement!
@@ -38,11 +38,11 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
             # Start with the best known solution so far
             current_solution = deepcopy(best_solution)
 
-            # Systematische Nachbarschaftssuche (k startet bei 1)
+            # Systematic neighborhood search (k starts at 1)
             k = 1
-            while k <= 15  # 15 definierte Nachbarschaften
+            while k <= 15  # 15 defined neighborhoods
                 
-                # Shaking mit der aktuellen Nachbarschaft k
+                # Shaking with the current neighborhood k
                 shaking!(current_solution, instance, k)
                 
                 # Perform local search on all changed routes
@@ -84,14 +84,17 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
                     println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
                     last_accepted_iteration = iteration
                     last_improvement_iteration = iteration
-                    k = 1  # Zurück zur ersten Nachbarschaft
-                elseif current_solution.plan_length > best_solution.plan_length && iteration - last_accepted_iteration <= acceptance_iterations && rand() < acceptance_probability && iteration - last_worse_solution_accepted_iteration > acceptance_iterations
+                    k = 1  # Reset to the first neighborhood
+                elseif current_solution.plan_length > best_solution.plan_length &&
+                       iteration - last_accepted_iteration <= acceptance_iterations &&
+                       rand() < acceptance_probability &&
+                       iteration - last_worse_solution_accepted_iteration > acceptance_iterations
                     println("Accepted worse solution at iteration $iteration: $(current_solution.plan_length)")
                     last_accepted_iteration = iteration
                     last_worse_solution_accepted_iteration = iteration
-                    k = 1  # Zurück zur ersten Nachbarschaft
+                    k = 1  # Reset to the first neighborhood
                 else
-                    k += 1  # Wechsel zur nächsten Nachbarschaft
+                    k += 1  # Move to the next neighborhood
                 end
             end
 
@@ -140,8 +143,11 @@ function vns!(solution::PVRPSolution, instance::PVRPInstanceStruct, instance_nam
     # Save logbook and best solution
     save_logbook_to_yaml(logbook, joinpath(seed_folder, "logbook.yaml"))
 
+    # Validate the final solution and store the result
+    is_final_solution_valid = validate_solution(best_solution, instance)
+
     # Save run information
-    save_run_info_to_yaml(seed, 0.0, best_solution.plan_length, validate_solution(best_solution, instance), joinpath(seed_folder, "run_info.yaml"))
+    save_run_info_to_yaml(seed, 0.0, best_solution.plan_length, is_final_solution_valid, joinpath(seed_folder, "run_info.yaml"))
 
     # Save the solution evolution plot
     solution_plot_logbook = plot_logbook(logbook, instance_name, seed, seed_folder)
@@ -160,7 +166,7 @@ function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs
     for run in 1:num_runs
 
         # Generate a seed for the run
-        seed = rand(1:10000)
+        seed = 3491
 
         # Reset the instance for each run
         instance_copy = deepcopy(instance)

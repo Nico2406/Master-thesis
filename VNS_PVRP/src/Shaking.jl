@@ -519,4 +519,4 @@ function shaking!(solution::PVRPSolution, instance::PVRPInstanceStruct, k::Int):
     return delta
 end
 
-end # module
+end # module Shaking
