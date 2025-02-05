@@ -22,14 +22,14 @@ function main()
     idle_energy = 36.0  # Idle energy consumption (MJ/h)
 
     # VNS algorithm parameters
-    num_iterations = 2 # Number of iterations for the VNS algorithm
-    acceptance_probability = 0.00  # Acceptance probability for the VNS algorithm
-    acceptance_iterations = 5  # Number of acceptance iterations for the VNS algorithm
-    no_improvement_iterations = 500 # Number of iterations without improvement before stopping the VNS algorithm
+    num_iterations = 10000 # Number of iterations for the VNS algorithm
+    acceptance_probability = 0.05  # Acceptance probability for the VNS algorithm
+    acceptance_iterations = 50  # Number of acceptance iterations for the VNS algorithm
+    no_improvement_iterations = 200 # Number of iterations without improvement before stopping the VNS algorithm
 
     # Instance configuration
-    instance_name = "Weiz_BIO" 
-    use_cordeau_instance = false  # Set to true if using Cordeau instances
+    instance_name = "p05" 
+    use_cordeau_instance = true  # Set to true if using Cordeau instances
 
     if use_cordeau_instance
         instance_file_path = "instances/" * instance_name * ".txt"
@@ -55,7 +55,7 @@ function main()
     mkpath(save_folder)
 
     # Run the VNS algorithm with multiple runs
-    num_runs = 1
+    num_runs = 10
     println("Running VNS for $num_runs runs...")
     start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
@@ -115,6 +115,8 @@ function main()
     #println("Loading solution from $solution_filepath and calculating KPIs...")
     #load_solution_and_calculate_kpis(solution_filepath, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
 
+
+    """
     println("Optimizing a loaded solution...")
     optimized_results = optimize_loaded_solution!(solution_filepath, instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
     optimized_solution = optimized_results[1][1]  # Extract the PVRPSolution object
@@ -143,7 +145,7 @@ function main()
         println("$key: $value")
     end
     display_kpis(optimized_solution, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
-
+    """
 
     end
 
