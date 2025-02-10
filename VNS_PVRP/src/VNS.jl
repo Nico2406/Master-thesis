@@ -44,6 +44,7 @@ function vns!(
     mkpath(seed_folder)
 
     iteration = 1
+    k = 1  # Start with the first neighborhood
     is_feasible = false
     while iteration <= num_iterations
         try
@@ -59,99 +60,101 @@ function vns!(
             end
             best_iteration_solution = deepcopy(best_solution)
 
-            k = 1  # Start with the first neighborhood
-            while k <= 15  # 15 defined neighborhoods
-                
-                # Shaking with neighborhood k
-                shaking!(current_solution, instance, k)
-                
-                # Apply local search on modified routes
-                for day in keys(current_solution.tourplan)
-                    current_solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), current_solution.tourplan[day].routes)
-                    for route in current_solution.tourplan[day].routes
-                        if route.changed
-                            local_search!(route, instance, "reinsert-first", 1000)
-                            local_search!(route, instance, "swap-first", 1000)
-                            local_search!(route, instance, "2opt-first", 1000)
-                            recalculate_route!(route, instance)
-                            route.changed = false
+            # Shaking with neighborhood k
+            shaking!(current_solution, instance, k)
+            
+            # Apply local search on modified routes
+            for day in keys(current_solution.tourplan)
+                current_solution.tourplan[day].routes = filter(route -> !(isempty(route.visited_nodes) || route.visited_nodes == [0, 0]), current_solution.tourplan[day].routes)
+                for route in current_solution.tourplan[day].routes
+                    if route.changed
+                        local_search!(route, instance, "reinsert-first", 1000)
+                        local_search!(route, instance, "swap-first", 1000)
+                        local_search!(route, instance, "2opt-first", 1000)
+                        recalculate_route!(route, instance)
+                        route.changed = false
+                    end
+                end
+            end
+
+            # Recalculate total plan length and duration
+            recalculate_plan_length!(current_solution)
+
+            # Align initial visit combinations with the current state
+            for day in keys(current_solution.tourplan)
+                for route in current_solution.tourplan[day].routes
+                    for node in route.visited_nodes
+                        if node != 0
+                            instance.nodes[node + 1].initialvisitcombination[day] = true
                         end
                     end
                 end
+            end
 
-                # Recalculate total plan length and duration
-                recalculate_plan_length!(current_solution)
+            # Validate and update best solutions
+            is_feasible = validate_solution(current_solution, instance)
+            if is_feasible && current_solution.plan_length < best_feasible_solution.plan_length
+                best_feasible_solution = deepcopy(current_solution)
+            end
 
-                # Align initial visit combinations with the current state
-                for day in keys(current_solution.tourplan)
-                    for route in current_solution.tourplan[day].routes
-                        for node in route.visited_nodes
-                            if node != 0
-                                instance.nodes[node + 1].initialvisitcombination[day] = true
-                            end
-                        end
-                    end
+            if current_solution.plan_length < best_solution.plan_length
+                best_solution = deepcopy(current_solution)
+                best_iteration_solution = deepcopy(current_solution)
+                println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
+                last_accepted_iteration = iteration
+                last_improvement_iteration = iteration
+                no_improvement_count = 0  # Reset counter
+                k = 1  # Reset to the first neighborhood
+            elseif current_solution.plan_length > best_solution.plan_length &&
+                   iteration - last_accepted_iteration <= acceptance_iterations &&
+                   rand() < acceptance_probability &&
+                   iteration - last_worse_solution_accepted_iteration > acceptance_iterations &&
+                   current_solution.plan_length <= 1.05 * best_solution.plan_length  # Accept only if within 5% worse
+                #println("Accepted worse solution at iteration $iteration: $(current_solution.plan_length)")
+                last_accepted_iteration = iteration
+                last_worse_solution_accepted_iteration = iteration
+                best_iteration_solution = deepcopy(current_solution)
+                k = 1  # Reset to the first neighborhood
+            else
+                no_improvement_count += 1  # Increment no improvement counter
+                k += 1  # Move to the next neighborhood
+                if k > 15  # Reset neighborhood if it exceeds the limit
+                    k = 1
                 end
-
-                # Validate and update best solutions
-                is_feasible = validate_solution(current_solution, instance)
-                if is_feasible && current_solution.plan_length < best_feasible_solution.plan_length
-                    best_feasible_solution = deepcopy(current_solution)
-                end
-
-                if current_solution.plan_length < best_solution.plan_length
-                    best_solution = deepcopy(current_solution)
-                    best_iteration_solution = deepcopy(current_solution)
-                    println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
-                    last_accepted_iteration = iteration
-                    last_improvement_iteration = iteration
-                    no_improvement_count = 0  # Reset counter
-                    k = 1  # Reset to the first neighborhood
-                elseif current_solution.plan_length > best_solution.plan_length &&
-                       iteration - last_accepted_iteration <= acceptance_iterations &&
-                       rand() < acceptance_probability &&
-                       iteration - last_worse_solution_accepted_iteration > acceptance_iterations &&
-                       current_solution.plan_length <= 1.05 * best_solution.plan_length  # Accept only if within 5% worse
-                    #println("Accepted worse solution at iteration $iteration: $(current_solution.plan_length)")
-                    last_accepted_iteration = iteration
-                    last_worse_solution_accepted_iteration = iteration
-                    best_iteration_solution = deepcopy(current_solution)
-                    k = 1  # Reset to the first neighborhood
-                else
-                    no_improvement_count += 1  # Increment no improvement counter
-                    k += 1  # Move to the next neighborhood
-                end
-                
-                # **Update logbook inside the loop to track neighborhood-wise changes**
-                update_logbook!(
-                    logbook,
-                    iteration,
-                    current_solution.plan_length,
-                    best_solution.plan_length,
-                    best_feasible_solution.plan_length,
-                    feasible=is_feasible
-                )
-            end  # End of neighborhood loop
-
-            # Save solution and plot every 100 iterations
-            if iteration % 100 == 0
-                save_solution_to_yaml(best_solution, joinpath(seed_folder, "solution_$iteration.yaml"))
-                best_solution_plot = plot_solution(best_solution, instance)
-                savefig(best_solution_plot, joinpath(seed_folder, "best_solution_plot_$iteration.png"))
-                best_feasible_solution_plot = plot_solution(best_feasible_solution, instance)
-                savefig(best_feasible_solution_plot, joinpath(seed_folder, "best_feasible_solution_plot_$iteration.png"))
+            end
+            
+            # **Update logbook inside the loop to track neighborhood-wise changes**
+            update_logbook!(
+                logbook,
+                iteration,
+                current_solution.plan_length,
+                best_solution.plan_length,
+                best_feasible_solution.plan_length,
+                feasible=is_feasible
+            )
+            catch e
+                println("Error during iteration $iteration: $e")
+                continue
             end
 
             iteration += 1
 
-        catch e
-            println("Error during iteration $iteration: $e")
-            continue
         end
-    end
 
-    return best_solution, logbook
-end
+            # Save solution, plots, and logbook after all iterations
+            save_solution_to_yaml(best_solution, joinpath(seed_folder, "solution_final.yaml"))
+            best_solution_plot = plot_solution(best_solution, instance)
+            savefig(best_solution_plot, joinpath(seed_folder, "best_solution_plot_final.png"))
+            best_feasible_solution_plot = plot_solution(best_feasible_solution, instance)
+            savefig(best_feasible_solution_plot, joinpath(seed_folder, "best_feasible_solution_plot_final.png"))
+            save_logbook_to_yaml(logbook, joinpath(seed_folder, "logbook_final.yaml"))
+            
+            # Save the solution evolution plot
+            sols_p = plot_logbook(logbook, instance_name, seed, seed_folder)
+            savefig(sols_p, joinpath(seed_folder, "solution_evolution_plot.png"))
+
+            return best_solution, logbook
+        end
 
 function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int, acceptance_probability::Float64, acceptance_iterations::Int, no_improvement_iterations::Int)::Vector{Tuple{PVRPSolution, VNSLogbook, Bool, Int}}
     results = []

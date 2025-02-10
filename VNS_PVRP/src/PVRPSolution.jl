@@ -347,7 +347,7 @@ function plot_logbook(logbook::VNSLogbook, instance_name::String, seed::Int, out
         title = "Solution Evolution",
         size = (1200, 800)
     )
-    savefig(sols_p, joinpath(output_dir, "solution_evolution_plot.png"))
+    #savefig(sols_p, joinpath(output_dir, "solution_evolution_plot.png"))
 
     # Plot parameters
     if !isempty(logbook.parameters)

@@ -291,7 +291,7 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
     total_delta = 0.0
     all_nodes = unique(vcat([route.visited_nodes[2:end-1] for vrp_solution in values(solution.tourplan) for route in vrp_solution.routes]...))
     num_nodes = length(all_nodes)
-    percentage = rand(15:25) / 100
+    percentage = rand(20:30) / 100
     num_changes = max(1, round(Int, percentage * num_nodes))
     selected_nodes = shuffle(all_nodes)[1:num_changes]
 
