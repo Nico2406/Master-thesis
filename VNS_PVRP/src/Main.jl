@@ -1,35 +1,36 @@
 using Revise
 using VNS_PVRP
 using VNS_PVRP.PVRPInstance: initialize_instance, plot_instance, read_distance_matrix
-using VNS_PVRP.Solution: display_solution, plot_logbook, plot_solution, validate_solution, calculate_kpis_with_treatment, display_kpis, load_solution_and_calculate_kpis, Calculate_KPIs_real_instance
+using VNS_PVRP.Solution: display_solution, plot_logbook, plot_solution, validate_solution, calculate_kpis_with_treatment, display_kpis, load_solution_and_calculate_kpis, Calculate_KPIs_real_instance, display_kpis_real_instance, load_solution_and_calculate_KPIs_real_instance
 using VNS_PVRP.VNS: test_vns!, optimize_loaded_solution!
 using FilePathsBase: mkpath
 using Dates: now, Minute, Dates
 
 function main()
     # Parameters for KPI calculation
-    region = :urban  # Options: :urban, :suburban, :rural
-    bring_participation = 0.8  # Proportion participating in the bring system
-    ev_share = 0.0  # Proportion of electric vehicles (ensure this is a float)
-    average_idle_time_per_stop = 0.1  # Average idle time per stop in hours
-    compacting_energy = 10.0  # Energy needed for compacting the waste (MJ)
-    stops_per_compacting = 5  # Number of stops needed for one time compacting
-    average_speed = 40.0  # Average speed (km/h)
-    treatment_distance = 10.0  # Distance to treatment plant (km)
-    average_load = 5.0  # Average load (tons)
-    stop_energy = 2.3  # Energy consumption per stop (MJ)
-    energy_per_km = 9.0  # Energy consumption per km (MJ)
-    idle_energy = 36.0  # Idle energy consumption (MJ/h)
+    region = :urban  # Options: :urban, :suburban, :rural (default: :urban)
+    bring_participation = 1.0  # Proportion participating in the bring system (default: 1.0)
+    ev_share = 0.0  # Proportion of electric vehicles (ensure this is a float) (default: 0.0)
+    average_idle_time_per_stop = 0.01  # Average idle time per stop in hours (default: 0.01)
+    compacting_energy = 10.0  # Energy needed for compacting the waste (MJ) (default: 10.0)
+    stops_per_compacting = 5  # Number of stops needed for one time compacting (default: 5)
+    average_speed = 40.0  # Average speed (km/h) (default: 40.0)
+    treatment_distance = 10.0  # Distance to treatment plant (km) (default: 10.0)
+    average_load = 5.0  # Average load (tons) (default: 5.0)
+    stop_energy = 2.3  # Energy consumption per stop (MJ) (default: 2.3)
+    energy_per_km = 9.0  # Energy consumption per km (MJ) (default: 9.0)
+    idle_energy = 36.0  # Idle energy consumption (MJ/h) (default: 36.0)
+    waste_amount = 5.0  # Amount of waste (tons) (default: 5.0)
 
     # VNS algorithm parameters
-    num_iterations = 10000 # Number of iterations for the VNS algorithm
+    num_iterations = 5 # Number of iterations for the VNS algorithm
     acceptance_probability = 0.05  # Acceptance probability for the VNS algorithm
     acceptance_iterations = 50  # Number of acceptance iterations for the VNS algorithm
     no_improvement_iterations = 200 # Number of iterations without improvement before stopping the VNS algorithm
 
     # Instance configuration
-    instance_name = "p05" 
-    use_cordeau_instance = true  # Set to true if using Cordeau instances
+    instance_name = "Weiz_BIO"  # Name of the instance
+    use_cordeau_instance = false  # Set to true if using Cordeau instances
 
     if use_cordeau_instance
         instance_file_path = "instances/" * instance_name * ".txt"
@@ -55,8 +56,9 @@ function main()
     mkpath(save_folder)
 
     # Run the VNS algorithm with multiple runs
-    num_runs = 10
-    println("Running VNS for $num_runs runs...")
+    num_runs = 1
+    """
+    println("Running VNS for num_runs runs...")
     start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
     end_time = now()
@@ -92,7 +94,7 @@ function main()
     println("Elapsed Time (minutes): ", elapsed_time_minutes, " minutes and ", elapsed_time_seconds, " seconds")
     println("====================================")
 
-    println("Best Solution found in run $best_result_index")
+    println("Best Solution found in run best_result_index")
     println("====================================")
 
     # Display the best solution
@@ -109,23 +111,32 @@ function main()
     solution_plot = plot_solution(best_solution, instance)
     display(solution_plot)
 
+
+    """
     # Load a solution from YAML and calculate KPIs
     solution_filepath = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions/Weiz_BIO/3491/final_solution.yaml"
     println("====================================")
-    #println("Loading solution from $solution_filepath and calculating KPIs...")
+    #println("Loading solution from solution_filepath and calculating KPIs...")
     #load_solution_and_calculate_kpis(solution_filepath, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
 
+    
 
     """
     println("Optimizing a loaded solution...")
     optimized_results = optimize_loaded_solution!(solution_filepath, instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
     optimized_solution = optimized_results[1][1]  # Extract the PVRPSolution object
     display_solution(optimized_solution, instance, "Optimized Solution")
+    """
+   
 
     # Calculate KPIs of the real Instance
     distance_matrix_Distance = read_distance_matrix("real_instances/mtx_" * instance_name * "_2089ohneIF_m.txt")
+    load_solution_and_calculate_KPIs_real_instance(solution_filepath, instance, region, bring_participation, ev_share, compacting_energy, stops_per_compacting, treatment_distance, average_load, waste_amount, stop_energy, energy_per_km, distance_matrix_Distance, instance.distance_matrix)
+
+
+    """
     println("Calculating KPIs for the real instance...")
-    kpis_real_instance = Calculate_KPIs_real_instance(
+    display_kpis_real_instance(
         optimized_solution, 
         instance, 
         region, 
@@ -140,11 +151,6 @@ function main()
         distance_matrix_Distance, 
         instance.distance_matrix
     )
-    println("KPIs for the real instance:")
-    for (key, value) in kpis_real_instance
-        println("$key: $value")
-    end
-    display_kpis(optimized_solution, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
     """
 
     end

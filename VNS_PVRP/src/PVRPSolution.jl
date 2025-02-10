@@ -5,7 +5,7 @@ using Plots
 using YAML
 using YAML: write_file, load_file
 
-export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, calculate_kpis_with_treatment, display_kpis, run_parameter_study, Calculate_KPIs_real_instance
+export Route, PVRPSolution, VRPSolution, plot_solution, plot_solution!, validate_route, validate_solution, recalculate_route!, remove_segment!, insert_segment, display_solution, save_solution_to_yaml, load_solution_from_yaml, save_run_info_to_yaml, save_logbook_to_yaml, plot_logbook, recalculate_plan_length!, calculate_kpis_with_treatment, display_kpis, run_parameter_study, Calculate_KPIs_real_instance, load_solution_and_calculate_kpis, display_kpis_real_instance
 
 # Define a mutable struct to represent a route
 mutable struct Route
@@ -497,22 +497,12 @@ function Calculate_KPIs_real_instance(
     stops_per_compacting::Int, 
     treatment_distance::Float64, 
     average_load::Float64, 
+    waste_amount::Float64, 
     stop_energy::Float64, 
     energy_per_km::Float64, 
     distance_matrix_meters::Matrix{Float64}, 
     time_matrix_minutes::Matrix{Float64}
 )::Dict{String, Any}
-    
-    # Default values based on region
-    defaults = Dict(
-        :urban => Dict(),
-        :suburban => Dict(),
-        :rural => Dict()
-    )
-    params = defaults[region]
-    params["load"] = average_load
-    params["stop_energy"] = stop_energy
-    params["energy_per_km"] = energy_per_km
 
     # Initialize variables
     total_energy = 0.0
@@ -536,29 +526,25 @@ function Calculate_KPIs_real_instance(
                 route_distance += distance_matrix_meters[nodes[i] + 1, nodes[i+1] + 1]
                 route_time += time_matrix_minutes[nodes[i] + 1, nodes[i+1] + 1]
             end
-
+            
             # Umrechnung der Distanz in km
             route_distance_km = route_distance / 1000  
-
             total_distance += route_distance_km
             total_time += route_time
 
-            # Collection energy
-            collection_energy += route_distance_km * params["energy_per_km"]
+            # Collection energy (Edrivecollect)
+            collection_energy += route_distance_km * energy_per_km
 
-            # Stops und Energieverbrauch
+            # Stops und Energieverbrauch (Estopcollect)
             stops = length(nodes) - 2  # Exklusive Depot
             total_stops += stops
-            stop_energy_total += stops * params["stop_energy"]
+            stop_energy_total += stops * stop_energy #+(stops / stops_per_compacting) * compacting_energy
 
-            # Add compacting energy
-            stop_energy_total += (stops / stops_per_compacting) * compacting_energy
-
-            # Transport phase: Rückfahrt zur Behandlungsanlage
-            transport_energy += treatment_distance * params["energy_per_km"]
+            # Transport phase (Ehaul): Rückfahrt zur Behandlungsanlage
+            transport_energy += (waste_amount / average_load) * treatment_distance * 2 * energy_per_km
         end
     end
-
+    
     # Gesamtenergie
     total_energy = transport_energy + collection_energy + stop_energy_total
 
@@ -580,7 +566,6 @@ function Calculate_KPIs_real_instance(
     collection_emissions = collection_energy / 36.0 * 2.64
     stop_emissions = stop_energy_total / 36.0 * 2.64
 
-    # Output als Dictionary
     return Dict(
         "Total Energy (MJ)" => total_energy,
         "EV Consumption (MWh)" => ev_mwh,
@@ -595,10 +580,10 @@ function Calculate_KPIs_real_instance(
     )
 end
 
-
 function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, average_idle_time_per_stop::Float64, compacting_energy::Float64, stops_per_compacting::Int, average_speed::Float64, treatment_distance::Float64, average_load::Float64, stop_energy::Float64, energy_per_km::Float64, idle_energy::Float64)
     # Calculate KPIs
     println("\nCalculating KPIs with the following parameters:")
+    println("====================================")
     println("Region: ", region)
     println("Bring Participation: ", bring_participation)
     println("EV Share: ", ev_share)
@@ -612,6 +597,7 @@ function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct,
     println("Energy per km (MJ): ", energy_per_km)
     println("Idle Energy (MJ/h): ", idle_energy)
     println("====================================")
+    
     kpis = calculate_kpis_with_treatment(
         best_solution, instance, region,
         bring_participation,
@@ -626,7 +612,9 @@ function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct,
         energy_per_km,
         idle_energy
     )
+    
     println("\nKPIs Summary:")
+    println("====================================")
     for (key, value) in kpis
         println(key, ": ", value)
     end
@@ -639,10 +627,11 @@ function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct,
     idle_energy_total = kpis["Idle Phase"]["Energy (MJ)"]
 
     println("\nEnergy Portion by Phase:")
-    println("  Transport Phase: ", round(transport_energy / total_energy * 100, digits=2), "%")
-    println("  Collection Phase: ", round(collection_energy / total_energy * 100, digits=2), "%")
-    println("  Stop Phase: ", round(stop_energy_total / total_energy * 100, digits=2), "%")
-    println("  Idle Phase: ", round(idle_energy_total / total_energy * 100, digits=2), "%")
+    println("====================================")
+    println("Transport Phase: ", round(transport_energy / total_energy * 100, digits=2), "%")
+    println("Collection Phase: ", round(collection_energy / total_energy * 100, digits=2), "%")
+    println("Stop Phase: ", round(stop_energy_total / total_energy * 100, digits=2), "%")
+    println("Idle Phase: ", round(idle_energy_total / total_energy * 100, digits=2), "%")
 
     # Print the CO2 emissions for each phase
     transport_emissions = kpis["Transport Phase (Ehaul)"]["Emissions (kg CO2)"]
@@ -651,15 +640,17 @@ function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct,
     idle_emissions = kpis["Idle Phase"]["Emissions (kg CO2)"]
 
     println("\nCO2 Emissions by Phase (kg):")
-    println("  Transport Phase: ", transport_emissions)
-    println("  Collection Phase: ", collection_emissions)
-    println("  Stop Phase: ", stop_emissions)
-    println("  Idle Phase: ", idle_emissions)
+    println("====================================")
+    println("Transport Phase: ", transport_emissions)
+    println("Collection Phase: ", collection_emissions)
+    println("Stop Phase: ", stop_emissions)
+    println("Idle Phase: ", idle_emissions)
 end
 
-function display_kpis_real_instance(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, compacting_energy::Float64, stops_per_compacting::Int, treatment_distance::Float64, average_load::Float64, stop_energy::Float64, energy_per_km::Float64, distance_matrix_meters::Matrix{Float64}, time_matrix_minutes::Matrix{Float64})
+function display_kpis_real_instance(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, compacting_energy::Float64, stops_per_compacting::Int, treatment_distance::Float64, average_load::Float64, waste_amount::Float64, stop_energy::Float64, energy_per_km::Float64, distance_matrix_meters::Matrix{Float64}, time_matrix_minutes::Matrix{Float64})
     # Calculate KPIs
     println("\nCalculating KPIs for real instance with the following parameters:")
+    println("====================================")
     println("Region: ", region)
     println("Bring Participation: ", bring_participation)
     println("EV Share: ", ev_share)
@@ -670,6 +661,7 @@ function display_kpis_real_instance(best_solution::PVRPSolution, instance::PVRPI
     println("Stop Energy (MJ): ", stop_energy)
     println("Energy per km (MJ): ", energy_per_km)
     println("====================================")
+    
     kpis = Calculate_KPIs_real_instance(
         best_solution, instance, region,
         bring_participation,
@@ -678,14 +670,17 @@ function display_kpis_real_instance(best_solution::PVRPSolution, instance::PVRPI
         stops_per_compacting,
         treatment_distance,
         average_load,
+        waste_amount,
         stop_energy,
         energy_per_km,
         distance_matrix_meters,
         time_matrix_minutes
     )
+    
     println("\nKPIs Summary:")
+    println("====================================")
     for (key, value) in kpis
-        println(key, ": ", value)
+        println(rpad(key, 40, "."), ": ", value)
     end
 
     # Print the portion of the total energy caused by each phase
@@ -695,9 +690,10 @@ function display_kpis_real_instance(best_solution::PVRPSolution, instance::PVRPI
     stop_energy_total = kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"]
 
     println("\nEnergy Portion by Phase:")
-    println("  Transport Phase: ", round(transport_energy / total_energy * 100, digits=2), "%")
-    println("  Collection Phase: ", round(collection_energy / total_energy * 100, digits=2), "%")
-    println("  Stop Phase: ", round(stop_energy_total / total_energy * 100, digits=2), "%")
+    println("====================================")
+    println(rpad("Transport Phase", 40, "."), ": ", round(transport_energy / total_energy * 100, digits=2), "%")
+    println(rpad("Collection Phase", 40, "."), ": ", round(collection_energy / total_energy * 100, digits=2), "%")
+    println(rpad("Stop Phase", 40, "."), ": ", round(stop_energy_total / total_energy * 100, digits=2), "%")
 
     # Print the CO2 emissions for each phase
     transport_emissions = kpis["Transport Phase (Ehaul)"]["Emissions (kg CO2)"]
@@ -705,9 +701,19 @@ function display_kpis_real_instance(best_solution::PVRPSolution, instance::PVRPI
     stop_emissions = kpis["Stop Phase (Estopcollect)"]["Emissions (kg CO2)"]
 
     println("\nCO2 Emissions by Phase (kg):")
-    println("  Transport Phase: ", transport_emissions)
-    println("  Collection Phase: ", collection_emissions)
-    println("  Stop Phase: ", stop_emissions)
+    println("====================================")
+    println(rpad("Transport Phase", 40, "."), ": ", transport_emissions)
+    println(rpad("Collection Phase", 40, "."), ": ", collection_emissions)
+    println(rpad("Stop Phase", 40, "."), ": ", stop_emissions)
+
+    # Calculate and print l/100km
+    diesel_liters = kpis["Diesel Consumption (Liters)"]
+    total_distance = kpis["Total Distance (km)"]
+    l_per_100km = (diesel_liters / total_distance) * 100
+
+    println("\nFuel Consumption:")
+    println("====================================")
+    println(rpad("Diesel Consumption (l/100km)", 40, "."), ": ", round(l_per_100km, digits=2))
 end
 
 function run_parameter_study(instance::PVRPInstanceStruct, best_solution::PVRPSolution, save_path::String)
@@ -798,6 +804,17 @@ function load_solution_and_calculate_kpis(filepath::String, instance::PVRPInstan
 
     # Calculate and display KPIs
     display_kpis(solution, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
+end
+
+function load_solution_and_calculate_KPIs_real_instance(filepath::String, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, compacting_energy::Float64, stops_per_compacting::Int, treatment_distance::Float64, average_load::Float64, waste_amount::Float64, stop_energy::Float64, energy_per_km::Float64, distance_matrix_meters::Matrix{Float64}, time_matrix_minutes::Matrix{Float64})
+    # Load the solution from the YAML file
+    solution = load_solution_from_yaml(filepath)
+    
+    # Display the loaded solution
+    display_solution(solution, instance, "Loaded Solution")
+
+    # Calculate and display KPIs for the real instance
+    display_kpis_real_instance(solution, instance, region, bring_participation, ev_share, compacting_energy, stops_per_compacting, treatment_distance, average_load, waste_amount, stop_energy, energy_per_km, distance_matrix_meters, time_matrix_minutes)
 end
 
 end # module
