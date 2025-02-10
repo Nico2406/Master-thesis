@@ -112,7 +112,7 @@ function vns!(
                        rand() < acceptance_probability &&
                        iteration - last_worse_solution_accepted_iteration > acceptance_iterations &&
                        current_solution.plan_length <= 1.05 * best_solution.plan_length  # Accept only if within 5% worse
-                    println("Accepted worse solution at iteration $iteration: $(current_solution.plan_length)")
+                    #println("Accepted worse solution at iteration $iteration: $(current_solution.plan_length)")
                     last_accepted_iteration = iteration
                     last_worse_solution_accepted_iteration = iteration
                     best_iteration_solution = deepcopy(current_solution)

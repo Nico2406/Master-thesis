@@ -657,6 +657,59 @@ function display_kpis(best_solution::PVRPSolution, instance::PVRPInstanceStruct,
     println("  Idle Phase: ", idle_emissions)
 end
 
+function display_kpis_real_instance(best_solution::PVRPSolution, instance::PVRPInstanceStruct, region::Symbol, bring_participation::Float64, ev_share::Float64, compacting_energy::Float64, stops_per_compacting::Int, treatment_distance::Float64, average_load::Float64, stop_energy::Float64, energy_per_km::Float64, distance_matrix_meters::Matrix{Float64}, time_matrix_minutes::Matrix{Float64})
+    # Calculate KPIs
+    println("\nCalculating KPIs for real instance with the following parameters:")
+    println("Region: ", region)
+    println("Bring Participation: ", bring_participation)
+    println("EV Share: ", ev_share)
+    println("Compacting Energy (MJ): ", compacting_energy)
+    println("Stops per Compacting: ", stops_per_compacting)
+    println("Treatment Distance (km): ", treatment_distance)
+    println("Average Load (tons): ", average_load)
+    println("Stop Energy (MJ): ", stop_energy)
+    println("Energy per km (MJ): ", energy_per_km)
+    println("====================================")
+    kpis = Calculate_KPIs_real_instance(
+        best_solution, instance, region,
+        bring_participation,
+        ev_share,
+        compacting_energy,
+        stops_per_compacting,
+        treatment_distance,
+        average_load,
+        stop_energy,
+        energy_per_km,
+        distance_matrix_meters,
+        time_matrix_minutes
+    )
+    println("\nKPIs Summary:")
+    for (key, value) in kpis
+        println(key, ": ", value)
+    end
+
+    # Print the portion of the total energy caused by each phase
+    total_energy = kpis["Total Energy (MJ)"]
+    transport_energy = kpis["Transport Phase (Ehaul)"]["Energy (MJ)"]
+    collection_energy = kpis["Collection Phase (Edrivecollect)"]["Energy (MJ)"]
+    stop_energy_total = kpis["Stop Phase (Estopcollect)"]["Energy (MJ)"]
+
+    println("\nEnergy Portion by Phase:")
+    println("  Transport Phase: ", round(transport_energy / total_energy * 100, digits=2), "%")
+    println("  Collection Phase: ", round(collection_energy / total_energy * 100, digits=2), "%")
+    println("  Stop Phase: ", round(stop_energy_total / total_energy * 100, digits=2), "%")
+
+    # Print the CO2 emissions for each phase
+    transport_emissions = kpis["Transport Phase (Ehaul)"]["Emissions (kg CO2)"]
+    collection_emissions = kpis["Collection Phase (Edrivecollect)"]["Emissions (kg CO2)"]
+    stop_emissions = kpis["Stop Phase (Estopcollect)"]["Emissions (kg CO2)"]
+
+    println("\nCO2 Emissions by Phase (kg):")
+    println("  Transport Phase: ", transport_emissions)
+    println("  Collection Phase: ", collection_emissions)
+    println("  Stop Phase: ", stop_emissions)
+end
+
 function run_parameter_study(instance::PVRPInstanceStruct, best_solution::PVRPSolution, save_path::String)
     results = []
 
