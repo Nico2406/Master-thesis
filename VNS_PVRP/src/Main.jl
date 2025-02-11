@@ -23,16 +23,16 @@ function main()
     waste_amount = 5.0  # Amount of waste (tons) (default: 5.0)
 
     # VNS algorithm parameters
-    num_iterations = 100 # Number of iterations for the VNS algorithm
-    acceptance_probability = 0.05  # Acceptance probability for the VNS algorithm
-    acceptance_iterations = 30  # Number of acceptance iterations for the VNS algorithm
+    num_iterations = 1000 # Number of iterations for the VNS algorithm
+    acceptance_probability = 0.00  # Acceptance probability for the VNS algorithm
+    acceptance_iterations = 50  # Number of acceptance iterations for the VNS algorithm
     no_improvement_iterations = 1000 # Number of iterations without improvement before stopping the VNS algorithm
 
     # Instance configuration
-    instance_base_name = "Weiz_BIO"  # Base name of the instance
-    system_type = "Holsystem1min"  # Options: "Holsystem", "Holsystem1min", "Bringsystem"
+    instance_base_name = "pr05"  # Base name of the instance
+    system_type = ""  # Options: "Holsystem", "Holsystem1min", "Bringsystem"
     instance_name = instance_base_name * "_" * system_type  # Full instance name
-    use_cordeau_instance = false  # Set to true if using Cordeau instances
+    use_cordeau_instance = true  # Set to true if using Cordeau instances
 
     if use_cordeau_instance
         instance_file_path = "instances/" * instance_base_name * ".txt"
@@ -77,7 +77,7 @@ function main()
 
     println("VNS completed.")
     println("====================================")
-    println("Instance Name: ", instance_name)
+    println("Instance Name: ", instance_base_name)
     println("Number of Vehicles: ", instance.numberofvehicles)
     println("Number of Days: ", instance.numberofdays)
     println("Number of Customers: ", instance.numberofcustomers)
@@ -113,6 +113,8 @@ function main()
     solution_plot = plot_solution(best_solution, instance)
     display(solution_plot)
 
+    display_solution(best_solution, instance, "Final Solution")
+
     
     # Load a solution from YAML and calculate KPIs
     solution_filepath = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions/Weiz_BIO/3491/final_solution.yaml"
@@ -127,9 +129,9 @@ function main()
     optimized_results = optimize_loaded_solution!(solution_filepath, instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
     optimized_solution = optimized_results[1][1]  # Extract the PVRPSolution object
     display_solution(optimized_solution, instance, "Optimized Solution")
-    
+    """
    
-
+    """
     # Calculate KPIs of the real Instance
     distance_matrix_Distance = read_distance_matrix("real_instances/mtx_" * instance_name * "_2089ohneIF_m.txt")
     load_solution_and_calculate_KPIs_real_instance(solution_filepath, instance, region, bring_participation, ev_share, compacting_energy, stops_per_compacting, treatment_distance, average_load, waste_amount, stop_energy, energy_per_km, distance_matrix_Distance, instance.distance_matrix)
@@ -138,7 +140,7 @@ function main()
     
     println("Calculating KPIs for the real instance...")
     display_kpis_real_instance(
-        optimized_solution, 
+        best_solution[1], 
         instance, 
         region, 
         bring_participation, 

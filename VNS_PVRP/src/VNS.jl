@@ -92,10 +92,13 @@ function vns!(
             end
 
             # Validate and update best solutions
-            is_feasible = validate_solution(current_solution, instance)
-            if is_feasible && current_solution.plan_length < best_feasible_solution.plan_length
+            is_feasible = all(route -> route.feasible, [route for vrp_solution in values(current_solution.tourplan) for route in vrp_solution.routes])
+            if is_feasible && current_solution.plan_length < best_feasible_solution.plan_length 
                 best_feasible_solution = deepcopy(current_solution)
             end
+
+            # validate the solution
+            validate_solution(current_solution, instance)
 
             if current_solution.plan_length < best_solution.plan_length
                 best_solution = deepcopy(current_solution)
