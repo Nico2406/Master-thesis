@@ -16,11 +16,12 @@ mutable struct Route
     duration::Float64
     feasible::Bool
     changed::Bool
+    penalty::Float64
 end
 
 # Constructor for Route with default values for cost, duration, feasible, and changed
 function Route(visited_nodes::Vector{Int}, load::Float64, length::Float64)
-    Route(visited_nodes, load, length, 0.0, 0.0, true, false)
+    Route(visited_nodes, load, length, 0.0, 0.0, true, false, 0.0)
 end
 
 # Define a mutable struct to represent a VRP solution
@@ -235,11 +236,6 @@ function validate_solution(sol::PVRPSolution, inst::PVRPInstanceStruct)::Bool
 end
 
 
-# Function to create a copy of a route
-function Base.copy(route::Route)
-    return Route(copy(route.visited_nodes), route.load, route.length, route.cost, route.duration, route.feasible, route.changed)
-end
-
 # Function to display the solution
 function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstanceStruct, title::String)
     println(title)
@@ -247,7 +243,7 @@ function display_solution(pvrp_solution::PVRPSolution, instance::PVRPInstanceStr
         println("Day $day:")
         for (index, route) in enumerate(pvrp_solution.tourplan[day].routes)
             println("Route $index: $(route.visited_nodes)")
-            println("Load: $(route.load), Length: $(route.length), Duration: $(route.duration), Feasible: $(route.feasible)")
+            println("Load: $(route.load), Length: $(route.length), Duration: $(route.duration), Feasible: $(route.feasible), Penalty: $(route.penalty)")
         end
     end
 end

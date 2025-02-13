@@ -23,13 +23,13 @@ function main()
     waste_amount = 5.0  # Amount of waste (tons) (default: 5.0)
 
     # VNS algorithm parameters
-    num_iterations = 1000 # Number of iterations for the VNS algorithm
-    acceptance_probability = 0.00  # Acceptance probability for the VNS algorithm
+    num_iterations = 10000 # Number of iterations for the VNS algorithm
+    acceptance_probability = 0.05  # Acceptance probability of a worse solution for the VNS algorithm
     acceptance_iterations = 50  # Number of acceptance iterations for the VNS algorithm
-    no_improvement_iterations = 1000 # Number of iterations without improvement before stopping the VNS algorithm
+    no_improvement_iterations = 500000 # Number of iterations without improvement before stopping the VNS algorithm
 
     # Instance configuration
-    instance_base_name = "pr05"  # Base name of the instance
+    instance_base_name = "pr02"  # Base name of the instance
     system_type = ""  # Options: "Holsystem", "Holsystem1min", "Bringsystem"
     instance_name = instance_base_name * "_" * system_type  # Full instance name
     use_cordeau_instance = true  # Set to true if using Cordeau instances

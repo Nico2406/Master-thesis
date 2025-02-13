@@ -41,7 +41,7 @@ function move!(solution::PVRPSolution, instance::PVRPInstanceStruct, day::Int, k
     for insert_idx in 2:length(route2.visited_nodes)
         temp_route = deepcopy(route2)
         delta_insert = insert_segment!(temp_route, insert_idx, segment, instance)
-        if temp_route.load <= instance.vehicleload && temp_route.duration <= instance.maximumrouteduration && delta_insert < best_delta
+        if delta_insert < best_delta
             best_delta = delta_insert
             best_position = insert_idx
         end
@@ -113,11 +113,6 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
                 best_position = -1
 
                 for route in vrp_solution.routes
-                    if route.load + instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency <= instance.vehicleload && 
-                        route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + 
-                        instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] + 
-                        instance.nodes[node + 1].service_time <= instance.maximumrouteduration
-                     
                         for insert_idx in 2:length(route.visited_nodes)
                             temp_route = deepcopy(route)
                             delta = insert_segment!(temp_route, insert_idx, [node], instance)
@@ -127,7 +122,6 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
                                 best_position = insert_idx
                             end
                         end
-                    end
                 end
 
                 if best_route !== nothing
@@ -137,7 +131,7 @@ function change_visit_combinations!(solution::PVRPSolution, instance::PVRPInstan
                 else
                     new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 
                                       instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency, 
-                                      0.0, 0.0, 0.0, true, false)
+                                      0.0, 0.0, 0.0, true, false, 0.0)
                     recalculate_route!(new_route, instance)
                     push!(vrp_solution.routes, new_route)
                     total_delta += new_route.length
@@ -199,12 +193,7 @@ function change_visit_combinations_sequences!(solution::PVRPSolution, instance::
                 best_route = nothing
                 best_position = -1
 
-                for route in vrp_solution.routes
-                    if route.load + instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency <= instance.vehicleload && 
-                        route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + 
-                        instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] + 
-                        instance.nodes[node + 1].service_time <= instance.maximumrouteduration
-                     
+                for route in vrp_solution.routes    
                         for insert_idx in 2:length(route.visited_nodes)
                             temp_route = deepcopy(route)
                             delta = insert_segment!(temp_route, insert_idx, [node], instance)
@@ -214,7 +203,6 @@ function change_visit_combinations_sequences!(solution::PVRPSolution, instance::
                                 best_position = insert_idx
                             end
                         end
-                    end
                 end
 
                 if best_route !== nothing
@@ -224,7 +212,7 @@ function change_visit_combinations_sequences!(solution::PVRPSolution, instance::
                 else
                     new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 
                                       instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency, 
-                                      0.0, 0.0, 0.0, true, false)
+                                      0.0, 0.0, 0.0, true, false, 1000.0)
                     recalculate_route!(new_route, instance)
                     push!(vrp_solution.routes, new_route)
                     total_delta += new_route.length
@@ -250,11 +238,6 @@ function change_visit_combinations_sequences!(solution::PVRPSolution, instance::
                 best_position = -1
 
                 for route in vrp_solution.routes
-                    if route.load + instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency <= instance.vehicleload && 
-                        route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + 
-                        instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] + 
-                        instance.nodes[node + 1].service_time <= instance.maximumrouteduration
-                     
                         for insert_idx in 2:length(route.visited_nodes)
                             temp_route = deepcopy(route)
                             delta = insert_segment!(temp_route, insert_idx, [node], instance)
@@ -264,7 +247,6 @@ function change_visit_combinations_sequences!(solution::PVRPSolution, instance::
                                 best_position = insert_idx
                             end
                         end
-                    end
                 end
 
                 if best_route !== nothing
@@ -274,7 +256,7 @@ function change_visit_combinations_sequences!(solution::PVRPSolution, instance::
                 else
                     new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 
                                       instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency, 
-                                      0.0, 0.0, 0.0, true, false)
+                                      0.0, 0.0, 0.0, true, false, 0.0)
                     recalculate_route!(new_route, instance)
                     push!(vrp_solution.routes, new_route)
                     total_delta += new_route.length
@@ -332,11 +314,6 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
                 best_position = -1
 
                 for route in vrp_solution.routes
-                    if route.load + instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency <= instance.vehicleload && 
-                        route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + 
-                        instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] + 
-                        instance.nodes[node + 1].service_time <= instance.maximumrouteduration
-                     
                         for insert_idx in 2:length(route.visited_nodes)
                             temp_route = deepcopy(route)
                             delta = insert_segment!(temp_route, insert_idx, [node], instance)
@@ -346,7 +323,6 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
                                 best_position = insert_idx
                             end
                         end
-                    end
                 end
 
                 if best_route !== nothing
@@ -356,7 +332,7 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
                 else
                     new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 
                                       instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency, 
-                                      0.0, 0.0, 0.0, true, false)
+                                      0.0, 0.0, 0.0, true, false, 0.0)
                     recalculate_route!(new_route, instance)
                     push!(vrp_solution.routes, new_route)
                     total_delta += new_route.length
@@ -382,11 +358,6 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
                 best_position = -1
 
                 for route in vrp_solution.routes
-                    if route.load + instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency <= instance.vehicleload && 
-                        route.length + instance.distance_matrix[route.visited_nodes[end] + 1, node + 1] + 
-                        instance.distance_matrix[node + 1, route.visited_nodes[1] + 1] + 
-                        instance.nodes[node + 1].service_time <= instance.maximumrouteduration
-                     
                         for insert_idx in 2:length(route.visited_nodes)
                             temp_route = deepcopy(route)
                             delta = insert_segment!(temp_route, insert_idx, [node], instance)
@@ -396,7 +367,6 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
                                 best_position = insert_idx
                             end
                         end
-                    end
                 end
 
                 if best_route !== nothing
@@ -406,7 +376,7 @@ function change_visit_combinations_sequences_no_improvement!(solution::PVRPSolut
                 else
                     new_route = Route([instance.nodes[1].id, node, instance.nodes[1].id], 
                                       instance.nodes[node + 1].demand / instance.nodes[node + 1].frequency, 
-                                      0.0, 0.0, 0.0, true, false)
+                                      0.0, 0.0, 0.0, true, false, 0.0)
                     recalculate_route!(new_route, instance)
                     push!(vrp_solution.routes, new_route)
                     total_delta += new_route.length
@@ -467,9 +437,7 @@ function cross_exchange!(solution::PVRPSolution, instance::PVRPInstanceStruct, d
             delta_insert1 = insert_segment!(temp_route1, insert_idx1, segment2, instance)
             delta_insert2 = insert_segment!(temp_route2, insert_idx2, segment1, instance)
             
-            if temp_route1.load <= instance.vehicleload && temp_route2.load <= instance.vehicleload &&
-               temp_route1.duration <= instance.maximumrouteduration && temp_route2.duration <= instance.maximumrouteduration &&
-               (delta_insert1 + delta_insert2 < best_delta)
+            if (delta_insert1 + delta_insert2 < best_delta)
             best_delta = delta_insert1 + delta_insert2
             best_position1, best_position2 = insert_idx1, insert_idx2
             end

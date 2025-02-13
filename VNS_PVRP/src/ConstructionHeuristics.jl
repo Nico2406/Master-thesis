@@ -36,7 +36,7 @@ end
 
 # Create a big route for a given day by visiting all nodes that need to be visited on that day
 function create_big_route(instance::PVRPInstanceStruct, day::Int)::Route
-    big_route = Route([instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, false, false)  # Start with the depot (id of the first node)
+    big_route = Route([instance.nodes[1].id], 0.0, 0.0, 0.0, 0.0, false, false, 0.0)  # Start with the depot (id of the first node)
     current_node_index = 1  # Depot index
     visited = Set([current_node_index])
     unvisited_customers = Set{Int}()
@@ -92,7 +92,7 @@ function split_routes(big_route::Route, instance::PVRPInstanceStruct, day::Int):
 
         # Create a route for the current vehicle
         route_nodes = [instance.nodes[1].id; total_nodes[start_index:end_index]; instance.nodes[1].id]
-        route = Route(route_nodes, 0.0, 0.0, 0.0, 0.0, true, false)
+        route = Route(route_nodes, 0.0, 0.0, 0.0, 0.0,false, false, 0.0)
         recalculate_route!(route, instance)
 
         push!(vrp_solution.routes, route)

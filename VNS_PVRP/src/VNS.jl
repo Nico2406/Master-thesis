@@ -23,6 +23,14 @@ function vns!(
     acceptance_iterations::Int, 
     no_improvement_iterations::Int
 )::Tuple{PVRPSolution, VNSLogbook}
+
+    # Set the penalty for every route at the beginning
+    penalty = 1000
+    for day in keys(solution.tourplan)
+        for route in solution.tourplan[day].routes
+            route.penalty = penalty
+        end
+    end
     
     # Set the random seed for reproducibility
     Random.seed!(seed)
@@ -58,7 +66,6 @@ function vns!(
                 last_improvement_iteration = iteration
                 last_accepted_iteration = iteration - acceptance_iterations  # Prevent reverting to best solution for acceptance_iterations
             end
-            best_iteration_solution = deepcopy(best_solution)
 
             # Shaking with neighborhood k
             shaking!(current_solution, instance, k)
@@ -73,6 +80,21 @@ function vns!(
                         local_search!(route, instance, "2opt-first", 1000)
                         recalculate_route!(route, instance)
                         route.changed = false
+                    end
+                end
+            end
+
+            # Calculate penalty for each route
+            for day in keys(current_solution.tourplan)
+                for route in current_solution.tourplan[day].routes
+                    if route.feasible
+                        if route.penalty > 10.0
+                            route.penalty /= 1.001
+                        end
+                    else
+                        if route.penalty < 1000.0
+                            route.penalty *= 1.001
+                        end
                     end
                 end
             end
@@ -97,26 +119,27 @@ function vns!(
                 best_feasible_solution = deepcopy(current_solution)
             end
 
+            current_solution_cost = current_solution.plan_length + sum(route.penalty for day in keys(current_solution.tourplan) for route in current_solution.tourplan[day].routes)
+            best_solution_cost = best_solution.plan_length + sum(route.penalty for day in keys(best_solution.tourplan) for route in best_solution.tourplan[day].routes)
+
             # validate the solution
             validate_solution(current_solution, instance)
 
-            if current_solution.plan_length < best_solution.plan_length
+            if current_solution_cost < best_solution_cost
                 best_solution = deepcopy(current_solution)
-                best_iteration_solution = deepcopy(current_solution)
                 println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
                 last_accepted_iteration = iteration
                 last_improvement_iteration = iteration
                 no_improvement_count = 0  # Reset counter
                 k = 1  # Reset to the first neighborhood
-            elseif current_solution.plan_length > best_solution.plan_length &&
+            elseif current_solution_cost > best_solution_cost &&
                    iteration - last_accepted_iteration <= acceptance_iterations &&
                    rand() < acceptance_probability &&
                    iteration - last_worse_solution_accepted_iteration > acceptance_iterations &&
-                   current_solution.plan_length <= 1.05 * best_solution.plan_length  # Accept only if within 5% worse
+                   current_solution_cost <= 1.05 * best_solution_cost  # Accept only if within 5% worse
                 #println("Accepted worse solution at iteration $iteration: $(current_solution.plan_length)")
                 last_accepted_iteration = iteration
                 last_worse_solution_accepted_iteration = iteration
-                best_iteration_solution = deepcopy(current_solution)
                 k = 1  # Reset to the first neighborhood
             else
                 no_improvement_count += 1  # Increment no improvement counter
@@ -135,34 +158,35 @@ function vns!(
                 best_feasible_solution.plan_length,
                 feasible=is_feasible
             )
-            catch e
-                println("Error during iteration $iteration: $e")
-                continue
-            end
-
-            iteration += 1
-
+        catch e
+            println("Error during iteration $iteration: $e")
+            continue
         end
 
-            # Save solution, plots, and logbook after all iterations
-            save_solution_to_yaml(best_solution, joinpath(seed_folder, "solution_final.yaml"))
-            best_solution_plot = plot_solution(best_solution, instance)
-            savefig(best_solution_plot, joinpath(seed_folder, "best_solution_plot_final.png"))
-            best_feasible_solution_plot = plot_solution(best_feasible_solution, instance)
-            savefig(best_feasible_solution_plot, joinpath(seed_folder, "best_feasible_solution_plot_final.png"))
-            save_logbook_to_yaml(logbook, joinpath(seed_folder, "logbook_final.yaml"))
-            
-            # Save the solution evolution plot
-            sols_p = plot_logbook(logbook, instance_name, seed, seed_folder)
-            savefig(sols_p, joinpath(seed_folder, "solution_evolution_plot.png"))
+        iteration += 1
+    end
 
-            return best_solution, logbook
-        end
+    # Save solution, plots, and logbook after all iterations
+    save_solution_to_yaml(best_solution, joinpath(seed_folder, "solution_final.yaml"))
+    best_solution_plot = plot_solution(best_solution, instance)
+    savefig(best_solution_plot, joinpath(seed_folder, "best_solution_plot_final.png"))
+    best_feasible_solution_plot = plot_solution(best_feasible_solution, instance)
+    savefig(best_feasible_solution_plot, joinpath(seed_folder, "best_feasible_solution_plot_final.png"))
+    save_logbook_to_yaml(logbook, joinpath(seed_folder, "logbook_final.yaml"))
+    
+    # Save the solution evolution plot
+    sols_p = plot_logbook(logbook, instance_name, seed, seed_folder)
+    savefig(sols_p, joinpath(seed_folder, "solution_evolution_plot.png"))
+
+    return best_solution, logbook
+end
 
 function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs::Int, save_folder::String, num_iterations::Int, acceptance_probability::Float64, acceptance_iterations::Int, no_improvement_iterations::Int)::Vector{Tuple{PVRPSolution, VNSLogbook, Bool, Int}}
     results = []
 
     for run in 1:num_runs
+
+        println("Running VNS for run $run...")
 
         # Generate a seed for the run
         seed = rand(1:10000)
