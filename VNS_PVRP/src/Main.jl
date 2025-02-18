@@ -17,22 +17,22 @@ function main()
     average_speed = 40.0  # Average speed (km/h) (default: 40.0)
     treatment_distance = 10.0  # Distance to treatment plant (km) (default: 10.0)
     average_load = 5.0  # Average load (tons) (default: 5.0)
-    stop_energy = 2.3  # Energy consumption per stop (MJ) (default: 2.3)
+    stop_energy = 1.9  # Energy consumption per stop (MJ) (default: 2.3)
     energy_per_km = 9.0  # Energy consumption per km (MJ) (default: 9.0)
-    idle_energy = 36.0  # Idle energy consumption (MJ/h) (default: 36.0)
+    idle_energy = 30.0  # Idle energy consumption (MJ/h) (default: 36.0)
     waste_amount = 5.0  # Amount of waste (tons) (default: 5.0)
 
     # VNS algorithm parameters
-    num_iterations = 10000 # Number of iterations for the VNS algorithm
-    acceptance_probability = 0.05  # Acceptance probability of a worse solution for the VNS algorithm
-    acceptance_iterations = 50  # Number of acceptance iterations for the VNS algorithm
-    no_improvement_iterations = 500000 # Number of iterations without improvement before stopping the VNS algorithm
+    num_iterations = 1000 # Number of iterations for the VNS algorithm
+    acceptance_probability = 0.1  # Acceptance probability of a worse solution for the VNS algorithm
+    acceptance_iterations = 100  # Number of acceptance iterations for the VNS algorithm
+    no_improvement_iterations = 5000 # Number of iterations without improvement before stopping the VNS algorithm
 
     # Instance configuration
-    instance_base_name = "pr02"  # Base name of the instance
-    system_type = ""  # Options: "Holsystem", "Holsystem1min", "Bringsystem"
+    instance_base_name = "Weiz_BIO"  # Base name of the instance
+    system_type = "Holsystem1min"  # Options: "Holsystem", "Holsystem1min", "Bringsystem"
     instance_name = instance_base_name * "_" * system_type  # Full instance name
-    use_cordeau_instance = true  # Set to true if using Cordeau instances
+    use_cordeau_instance = false  # Set to true if using Cordeau instances
 
     if use_cordeau_instance
         instance_file_path = "instances/" * instance_base_name * ".txt"
@@ -49,6 +49,8 @@ function main()
         instance = VNS_PVRP.PVRPInstance.initialize_instance(instance_file_path, distance_matrix_filepath)
     end
 
+
+    """
     # Plot the instance
     plot = VNS_PVRP.PVRPInstance.plot_instance(instance)
     display(plot)
@@ -58,14 +60,16 @@ function main()
     mkpath(save_folder)
 
     # Run the VNS algorithm with multiple runs
-    num_runs = 1
+    num_runs = 5
     
-    println("Running VNS for $num_runs runs...")
+    
+    println("Running VNS for num_runs runs...")
     start_time = now()
     results = test_vns!(instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
     end_time = now()
     elapsed_time = end_time - start_time
 
+    
     # Find the best solution from the results
     best_result_index = argmin([result[1].plan_length for result in results])
     best_result = results[best_result_index]
@@ -96,7 +100,7 @@ function main()
     println("Elapsed Time (minutes): ", elapsed_time_minutes, " minutes and ", elapsed_time_seconds, " seconds")
     println("====================================")
 
-    println("Best Solution found in run $best_result_index")
+    println("Best Solution found in run best_result_index")
     println("====================================")
 
     # Display the best solution
@@ -114,24 +118,34 @@ function main()
     display(solution_plot)
 
     display_solution(best_solution, instance, "Final Solution")
-
+    """
     
     # Load a solution from YAML and calculate KPIs
-    solution_filepath = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions/Weiz_BIO/3491/final_solution.yaml"
+    solution_filepath_Bringsystem = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions/Weiz_BIO_Bringsystem/Weiz_BIO_Bringsystem/9124/solution_final.yaml"
+    solution_filepath_Holsystem = "/Users/nicoehler/Desktop/Masterarbeit Code/VNS_PVRP/Solutions/Weiz_BIO_Holsystem1min/Weiz_BIO_Holsystem1min/240/solution_final.yaml"
     println("====================================")
-    #println("Loading solution from solution_filepath and calculating KPIs...")
-    #load_solution_and_calculate_kpis(solution_filepath, instance, region, bring_participation, ev_share, average_idle_time_per_stop, compacting_energy, stops_per_compacting, average_speed, treatment_distance, average_load, stop_energy, energy_per_km, idle_energy)
 
+
+    # Calculate KPIs of the real Instance
+    distance_matrix_Distance = read_distance_matrix("real_instances/mtx_" * instance_base_name * "_2089ohneIF_m.txt")
+
+    println("Loading solution from solution_filepath and calculating KPIs...")
+    load_solution_and_calculate_KPIs_real_instance(solution_filepath_Bringsystem, instance, region, bring_participation, ev_share, compacting_energy, stops_per_compacting, treatment_distance, average_load, waste_amount, stop_energy, energy_per_km, distance_matrix_Distance, instance.distance_matrix, idle_energy, average_speed)
     
-
+    
     """
+    
     println("Optimizing a loaded solution...")
     optimized_results = optimize_loaded_solution!(solution_filepath, instance, instance_name, num_runs, save_folder, num_iterations, acceptance_probability, acceptance_iterations, no_improvement_iterations)
     optimized_solution = optimized_results[1][1]  # Extract the PVRPSolution object
     display_solution(optimized_solution, instance, "Optimized Solution")
-    """
+    plot_optimized_solution = plot_solution(optimized_solution, instance)
+    display(plot_optimized_solution)
+    display_kpis_real_instance(optimized_solution, instance, region, bring_participation, ev_share, compacting_energy, stops_per_compacting, treatment_distance, average_load, stop_energy, energy_per_km, distance_matrix_Distance, instance.distance_matrix)
+
+    
    
-    """
+    
     # Calculate KPIs of the real Instance
     distance_matrix_Distance = read_distance_matrix("real_instances/mtx_" * instance_name * "_2089ohneIF_m.txt")
     load_solution_and_calculate_KPIs_real_instance(solution_filepath, instance, region, bring_participation, ev_share, compacting_energy, stops_per_compacting, treatment_distance, average_load, waste_amount, stop_energy, energy_per_km, distance_matrix_Distance, instance.distance_matrix)

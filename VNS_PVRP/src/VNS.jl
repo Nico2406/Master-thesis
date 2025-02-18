@@ -127,7 +127,7 @@ function vns!(
 
             if current_solution_cost < best_solution_cost
                 best_solution = deepcopy(current_solution)
-                println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
+                #println("New best solution found at iteration $iteration: $(best_solution.plan_length)")
                 last_accepted_iteration = iteration
                 last_improvement_iteration = iteration
                 no_improvement_count = 0  # Reset counter
@@ -185,8 +185,6 @@ function test_vns!(instance::PVRPInstanceStruct, instance_name::String, num_runs
     results = []
 
     for run in 1:num_runs
-
-        println("Running VNS for run $run...")
 
         # Generate a seed for the run
         seed = rand(1:10000)
